@@ -1,4 +1,4 @@
-const CACHE_NAME = 'invoy-v1';
+const CACHE_NAME = 'invoy-v3';
 const ASSETS = [
     '/',
     '/index.html',
