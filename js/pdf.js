@@ -29,6 +29,7 @@ const InvoyPDF = (() => {
 
     function generateDefinition(invoice) {
         const curr = invoice.currency || 'USD';
+        const brandColor = invoice.brandColor || '#6C5CE7';
         const items = invoice.items || [];
         const subtotal = items.reduce((sum, item) => sum + ((parseFloat(item.quantity) || 0) * (parseFloat(item.rate) || 0)), 0);
 
@@ -101,8 +102,8 @@ const InvoyPDF = (() => {
         }
 
         totalsBody.push([
-            { text: 'Balance Due', alignment: 'right', bold: true, fontSize: 12, color: '#6C5CE7' },
-            { text: formatMoney(balanceDue, curr), alignment: 'right', bold: true, fontSize: 12, color: '#6C5CE7' }
+            { text: 'Balance Due', alignment: 'right', bold: true, fontSize: 12, color: brandColor },
+            { text: formatMoney(balanceDue, curr), alignment: 'right', bold: true, fontSize: 12, color: brandColor }
         ]);
 
         // Build document content
@@ -126,17 +127,20 @@ const InvoyPDF = (() => {
         content.push({ columns: headerColumns, margin: [0, 0, 0, 24] });
 
         // From / To
+        const fromStack = [
+            { text: 'FROM', style: 'sectionLabel' },
+            { text: invoice.fromName || '', style: 'partyName' },
+            { text: invoice.fromEmail || '', style: 'partyDetail' },
+            { text: invoice.fromAddress || '', style: 'partyDetail' },
+            { text: invoice.fromPhone || '', style: 'partyDetail' }
+        ];
+        if (invoice.website) fromStack.push({ text: invoice.website, style: 'partyDetail', color: brandColor });
+        if (invoice.taxId) fromStack.push({ text: 'Tax ID: ' + invoice.taxId, style: 'partyDetail', fontSize: 9, color: '#888' });
+        if (invoice.regNumber) fromStack.push({ text: 'Reg #: ' + invoice.regNumber, style: 'partyDetail', fontSize: 9, color: '#888' });
+
         content.push({
             columns: [
-                {
-                    stack: [
-                        { text: 'FROM', style: 'sectionLabel' },
-                        { text: invoice.fromName || '', style: 'partyName' },
-                        { text: invoice.fromEmail || '', style: 'partyDetail' },
-                        { text: invoice.fromAddress || '', style: 'partyDetail' },
-                        { text: invoice.fromPhone || '', style: 'partyDetail' }
-                    ]
-                },
+                { stack: fromStack },
                 {
                     stack: [
                         { text: 'BILL TO', style: 'sectionLabel' },
@@ -205,7 +209,7 @@ const InvoyPDF = (() => {
                             return i === totalIdx ? 1 : 0;
                         },
                         vLineWidth: () => 0,
-                        hLineColor: () => '#6C5CE7',
+                        hLineColor: () => brandColor,
                         paddingTop: () => 4,
                         paddingBottom: () => 4
                     }
@@ -213,6 +217,12 @@ const InvoyPDF = (() => {
             ],
             margin: [0, 0, 0, 20]
         });
+
+        // Payment Instructions
+        if (invoice.paymentInstructions) {
+            content.push({ text: 'Payment Instructions', style: 'sectionLabel', margin: [0, 10, 0, 4] });
+            content.push({ text: invoice.paymentInstructions, style: 'partyDetail', margin: [0, 0, 0, 10] });
+        }
 
         // Notes
         if (invoice.notes) {
@@ -226,16 +236,18 @@ const InvoyPDF = (() => {
             content.push({ text: invoice.terms, style: 'partyDetail', margin: [0, 0, 0, 10] });
         }
 
+        const footerText = invoice.footerText || 'Created with Invoy \u2014 Free Invoice Generator';
+
         return {
             content,
             footer: (currentPage, pageCount) => ({
                 columns: [
                     { text: `Page ${currentPage} of ${pageCount}`, alignment: 'left', fontSize: 8, color: '#bbb', margin: [40, 0, 0, 0] },
-                    { text: 'Created with Invoy \u2014 Free Invoice Generator', alignment: 'right', fontSize: 8, color: '#bbb', margin: [0, 0, 40, 0] }
+                    { text: footerText, alignment: 'right', fontSize: 8, color: '#bbb', margin: [0, 0, 40, 0] }
                 ]
             }),
             styles: {
-                invoiceTitle: { fontSize: 28, bold: true, color: '#6C5CE7' },
+                invoiceTitle: { fontSize: 28, bold: true, color: brandColor },
                 invoiceNumber: { fontSize: 11, color: '#888', margin: [0, 2, 0, 0] },
                 brandName: { fontSize: 16, bold: true, color: '#1a1a2e' },
                 sectionLabel: { fontSize: 9, bold: true, color: '#999', letterSpacing: 0.5 },

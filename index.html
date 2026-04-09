@@ -367,6 +367,18 @@
                     <h3 class="card-title">Business Information</h3>
                     <p class="card-desc">This will be pre-filled on every new invoice.</p>
                     <div class="form-group">
+                        <label class="form-label">Company Logo</label>
+                        <div class="settings-logo-upload" id="settings-logo-upload">
+                            <input type="file" id="set-logo-input" accept="image/*" hidden>
+                            <div class="settings-logo-preview" id="settings-logo-preview">
+                                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" opacity="0.4"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                                <span>Click to upload your company logo</span>
+                                <span class="upload-hint">Recommended: PNG or SVG, max 500KB</span>
+                            </div>
+                        </div>
+                        <button class="btn btn-ghost btn-xs" id="btn-remove-logo" style="display:none;margin-top:6px">Remove Logo</button>
+                    </div>
+                    <div class="form-group">
                         <label class="form-label">Business Name</label>
                         <input type="text" class="form-input" id="set-name" placeholder="Your Business Name">
                     </div>
@@ -378,9 +390,52 @@
                         <label class="form-label">Address</label>
                         <textarea class="form-textarea" id="set-address" rows="2" placeholder="123 Main St, City, State ZIP"></textarea>
                     </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Phone</label>
+                            <input type="tel" class="form-input" id="set-phone" placeholder="+1 (555) 123-4567">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Website</label>
+                            <input type="url" class="form-input" id="set-website" placeholder="https://yoursite.com">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Tax ID / VAT Number</label>
+                            <input type="text" class="form-input" id="set-tax-id" placeholder="e.g., EIN, VAT, GST number">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Registration Number</label>
+                            <input type="text" class="form-input" id="set-reg-number" placeholder="Business registration #">
+                        </div>
+                    </div>
+                </div>
+                <div class="card">
+                    <h3 class="card-title">Branding & Appearance</h3>
+                    <p class="card-desc">Customize how your invoices look.</p>
                     <div class="form-group">
-                        <label class="form-label">Phone</label>
-                        <input type="tel" class="form-input" id="set-phone" placeholder="+1 (555) 123-4567">
+                        <label class="form-label">Brand Color</label>
+                        <div class="color-picker-row">
+                            <input type="color" class="color-input" id="set-brand-color" value="#6C5CE7">
+                            <input type="text" class="form-input form-input-sm color-hex" id="set-brand-color-hex" value="#6C5CE7" maxlength="7" placeholder="#6C5CE7">
+                            <div class="color-presets" id="color-presets">
+                                <button class="color-swatch" data-color="#6C5CE7" title="Purple" style="background:#6C5CE7"></button>
+                                <button class="color-swatch" data-color="#0984e3" title="Blue" style="background:#0984e3"></button>
+                                <button class="color-swatch" data-color="#00b894" title="Green" style="background:#00b894"></button>
+                                <button class="color-swatch" data-color="#e17055" title="Coral" style="background:#e17055"></button>
+                                <button class="color-swatch" data-color="#2d3436" title="Dark" style="background:#2d3436"></button>
+                                <button class="color-swatch" data-color="#d63031" title="Red" style="background:#d63031"></button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Invoice Footer Text</label>
+                        <input type="text" class="form-input" id="set-footer-text" placeholder="e.g., Thank you for choosing us!">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Payment Instructions</label>
+                        <textarea class="form-textarea" id="set-payment-instructions" rows="3" placeholder="e.g., Bank: Example Bank&#10;Account: 1234567890&#10;Routing: 021000021&#10;PayPal: you@example.com"></textarea>
                     </div>
                 </div>
                 <div class="card">

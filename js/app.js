@@ -209,12 +209,16 @@ const App = (() => {
         $('#inv-notes').value = settings.defaultNotes || '';
         $('#inv-terms').value = settings.defaultTerms || '';
 
-        // Reset logo
+        // Auto-fill logo from settings
         const logoPreview = $('#logo-preview');
-        logoPreview.innerHTML = `
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" opacity="0.4"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
-            <span>Click to upload logo</span>
-        `;
+        if (settings.logo) {
+            logoPreview.innerHTML = `<img src="${settings.logo}" alt="Logo">`;
+        } else {
+            logoPreview.innerHTML = `
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" opacity="0.4"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                <span>Click to upload logo</span>
+            `;
+        }
 
         // Clear line items and add one empty row
         $('#line-items').innerHTML = '';
@@ -388,7 +392,14 @@ const App = (() => {
             taxRate: $('#inv-tax').value,
             amountPaid: $('#inv-paid').value,
             notes: $('#inv-notes').value,
-            terms: $('#inv-terms').value
+            terms: $('#inv-terms').value,
+            // Settings-derived fields
+            brandColor: settings.brandColor || '#6C5CE7',
+            website: settings.website || '',
+            taxId: settings.taxId || '',
+            regNumber: settings.regNumber || '',
+            footerText: settings.footerText || '',
+            paymentInstructions: settings.paymentInstructions || ''
         };
     }
 
@@ -442,11 +453,12 @@ const App = (() => {
         if (parseFloat(inv.taxRate) > 0) {
             totalsHtml += `<div class="inv-p-totals-row"><span>Tax (${inv.taxRate}%)</span><span>${InvoyPDF.formatMoney(taxAmount, curr)}</span></div>`;
         }
-        totalsHtml += `<div class="inv-p-totals-row inv-p-totals-total"><span>Total</span><span>${InvoyPDF.formatMoney(total, curr)}</span></div>`;
+        const previewBrandColor = (settings.brandColor || '#6C5CE7');
+        totalsHtml += `<div class="inv-p-totals-row inv-p-totals-total" style="border-top-color:${previewBrandColor}"><span>Total</span><span>${InvoyPDF.formatMoney(total, curr)}</span></div>`;
         if (paid > 0) {
             totalsHtml += `<div class="inv-p-totals-row"><span>Amount Paid</span><span>${InvoyPDF.formatMoney(paid, curr)}</span></div>`;
         }
-        totalsHtml += `<div class="inv-p-totals-row inv-p-totals-due"><span>Balance Due</span><span>${InvoyPDF.formatMoney(balance, curr)}</span></div>`;
+        totalsHtml += `<div class="inv-p-totals-row inv-p-totals-due" style="color:${previewBrandColor}"><span>Balance Due</span><span>${InvoyPDF.formatMoney(balance, curr)}</span></div>`;
 
         let notesHtml = '';
         if (inv.notes) {
@@ -456,11 +468,30 @@ const App = (() => {
             notesHtml += `<div class="inv-p-notes"><h4>Terms & Conditions</h4><p>${escapeHtml(inv.terms)}</p></div>`;
         }
 
+        const brandColor = inv.brandColor || '#6C5CE7';
+
+        // Extra from-info lines
+        let fromExtra = '';
+        if (inv.website) fromExtra += `<p>${escapeHtml(inv.website)}</p>`;
+        if (inv.taxId) fromExtra += `<p style="font-size:10px;color:#888">Tax ID: ${escapeHtml(inv.taxId)}</p>`;
+        if (inv.regNumber) fromExtra += `<p style="font-size:10px;color:#888">Reg #: ${escapeHtml(inv.regNumber)}</p>`;
+
+        // Payment instructions
+        let paymentHtml = '';
+        if (inv.paymentInstructions) {
+            paymentHtml = `<div class="inv-p-notes"><h4>Payment Instructions</h4><p>${escapeHtml(inv.paymentInstructions)}</p></div>`;
+        }
+
+        // Footer text
+        const footerText = inv.footerText
+            ? escapeHtml(inv.footerText)
+            : 'Created with Invoy &mdash; Free Invoice Generator';
+
         $('#invoice-preview').innerHTML = `
             <div class="inv-p-header">
                 ${logoHtml}
                 <div>
-                    <div class="inv-p-title">INVOICE</div>
+                    <div class="inv-p-title" style="color:${brandColor}">INVOICE</div>
                     <div class="inv-p-number">${escapeHtml(inv.number)}</div>
                 </div>
             </div>
@@ -471,6 +502,7 @@ const App = (() => {
                     <p>${escapeHtml(inv.fromEmail)}</p>
                     <p>${escapeHtml(inv.fromAddress)}</p>
                     <p>${escapeHtml(inv.fromPhone)}</p>
+                    ${fromExtra}
                 </div>
                 <div class="inv-p-party" style="text-align:right">
                     <h4>Bill To</h4>
@@ -494,9 +526,10 @@ const App = (() => {
                 <tbody>${itemsHtml || '<tr><td colspan="4" style="text-align:center;color:#ccc;padding:20px">Add line items to see them here</td></tr>'}</tbody>
             </table>
             <div class="inv-p-totals">${totalsHtml}</div>
+            ${paymentHtml}
             ${notesHtml}
             <div class="inv-p-footer">
-                <a>Created with Invoy &mdash; Free Invoice Generator</a>
+                <a>${footerText}</a>
             </div>
         `;
     }
@@ -641,6 +674,9 @@ const App = (() => {
             $('#set-email').value = settings.email || '';
             $('#set-address').value = settings.address || '';
             $('#set-phone').value = settings.phone || '';
+            $('#set-website').value = settings.website || '';
+            $('#set-tax-id').value = settings.taxId || '';
+            $('#set-reg-number').value = settings.regNumber || '';
             $('#set-prefix').value = settings.prefix || 'INV';
             $('#set-next-num').value = settings.nextNum || 1;
             $('#set-currency').value = settings.currency || 'USD';
@@ -648,7 +684,39 @@ const App = (() => {
             $('#set-due-days').value = settings.dueDays || 30;
             $('#set-notes').value = settings.defaultNotes || '';
             $('#set-terms').value = settings.defaultTerms || '';
+            $('#set-brand-color').value = settings.brandColor || '#6C5CE7';
+            $('#set-brand-color-hex').value = settings.brandColor || '#6C5CE7';
+            $('#set-footer-text').value = settings.footerText || '';
+            $('#set-payment-instructions').value = settings.paymentInstructions || '';
+
+            // Logo preview
+            renderSettingsLogo(settings.logo);
+
+            // Highlight active color swatch
+            updateColorSwatches(settings.brandColor || '#6C5CE7');
         }
+    }
+
+    function renderSettingsLogo(logoData) {
+        const preview = $('#settings-logo-preview');
+        const removeBtn = $('#btn-remove-logo');
+        if (logoData) {
+            preview.innerHTML = `<img src="${logoData}" alt="Company Logo">`;
+            removeBtn.style.display = 'inline-flex';
+        } else {
+            preview.innerHTML = `
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" opacity="0.4"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                <span>Click to upload your company logo</span>
+                <span class="upload-hint">Recommended: PNG or SVG, max 500KB</span>
+            `;
+            removeBtn.style.display = 'none';
+        }
+    }
+
+    function updateColorSwatches(color) {
+        $$('.color-swatch').forEach(s => {
+            s.classList.toggle('active', s.dataset.color.toLowerCase() === color.toLowerCase());
+        });
     }
 
     async function saveSettings() {
@@ -657,13 +725,20 @@ const App = (() => {
             email: $('#set-email').value,
             address: $('#set-address').value,
             phone: $('#set-phone').value,
+            website: $('#set-website').value,
+            taxId: $('#set-tax-id').value,
+            regNumber: $('#set-reg-number').value,
             prefix: $('#set-prefix').value,
             nextNum: parseInt($('#set-next-num').value) || 1,
             currency: $('#set-currency').value,
             taxRate: parseFloat($('#set-tax').value) || 0,
             dueDays: parseInt($('#set-due-days').value) || 30,
             defaultNotes: $('#set-notes').value,
-            defaultTerms: $('#set-terms').value
+            defaultTerms: $('#set-terms').value,
+            brandColor: $('#set-brand-color').value,
+            footerText: $('#set-footer-text').value,
+            paymentInstructions: $('#set-payment-instructions').value,
+            logo: settings.logo || null
         };
 
         for (const [key, value] of Object.entries(settingsMap)) {
@@ -806,6 +881,60 @@ const App = (() => {
 
         // Settings: Save
         $('#btn-save-settings').addEventListener('click', saveSettings);
+
+        // Settings: Logo upload
+        $('#settings-logo-upload').addEventListener('click', () => {
+            $('#set-logo-input').click();
+        });
+
+        $('#set-logo-input').addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            if (file.size > 500 * 1024) {
+                showToast('Logo must be under 500KB', 'error');
+                return;
+            }
+            const reader = new FileReader();
+            reader.onload = async (ev) => {
+                settings.logo = ev.target.result;
+                await InvoyDB.setSetting('logo', settings.logo);
+                renderSettingsLogo(settings.logo);
+                showToast('Logo uploaded', 'success');
+            };
+            reader.readAsDataURL(file);
+        });
+
+        // Settings: Remove logo
+        $('#btn-remove-logo').addEventListener('click', async () => {
+            settings.logo = null;
+            await InvoyDB.setSetting('logo', null);
+            renderSettingsLogo(null);
+            showToast('Logo removed', 'success');
+        });
+
+        // Settings: Brand color picker sync
+        $('#set-brand-color').addEventListener('input', (e) => {
+            $('#set-brand-color-hex').value = e.target.value;
+            updateColorSwatches(e.target.value);
+        });
+
+        $('#set-brand-color-hex').addEventListener('input', (e) => {
+            const val = e.target.value;
+            if (/^#[0-9a-fA-F]{6}$/.test(val)) {
+                $('#set-brand-color').value = val;
+                updateColorSwatches(val);
+            }
+        });
+
+        // Settings: Color preset swatches
+        $('#color-presets').addEventListener('click', (e) => {
+            const swatch = e.target.closest('.color-swatch');
+            if (!swatch) return;
+            const color = swatch.dataset.color;
+            $('#set-brand-color').value = color;
+            $('#set-brand-color-hex').value = color;
+            updateColorSwatches(color);
+        });
 
         // Backup / Restore
         $('#btn-backup').addEventListener('click', backupData);

@@ -795,6 +795,94 @@ a:hover { color: var(--color-primary-hover); }
 /* --- Filter Group --- */
 .filter-group { display: flex; gap: 8px; }
 
+/* --- Settings Logo Upload --- */
+.settings-logo-upload { cursor: pointer; }
+
+.settings-logo-preview {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 24px 16px;
+    border: 2px dashed var(--color-border);
+    border-radius: var(--radius-md);
+    color: var(--color-text-muted);
+    font-size: 0.85rem;
+    transition: border-color var(--transition);
+    min-height: 100px;
+}
+
+.settings-logo-preview:hover { border-color: var(--color-primary); }
+
+.settings-logo-preview img {
+    max-height: 80px;
+    max-width: 240px;
+    object-fit: contain;
+    border-radius: var(--radius-sm);
+}
+
+.settings-logo-preview .upload-hint {
+    font-size: 0.75rem;
+    color: var(--color-text-muted);
+    opacity: 0.7;
+}
+
+/* --- Color Picker --- */
+.color-picker-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.color-input {
+    width: 40px;
+    height: 40px;
+    padding: 2px;
+    border: 2px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    background: var(--color-bg);
+    cursor: pointer;
+    transition: border-color var(--transition);
+}
+
+.color-input:hover { border-color: var(--color-primary); }
+.color-input::-webkit-color-swatch-wrapper { padding: 0; }
+.color-input::-webkit-color-swatch { border: none; border-radius: 3px; }
+
+.color-hex {
+    width: 90px !important;
+    font-family: monospace;
+    text-transform: uppercase;
+}
+
+.color-presets {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+}
+
+.color-swatch {
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    border: 2px solid transparent;
+    cursor: pointer;
+    transition: all var(--transition);
+    padding: 0;
+}
+
+.color-swatch:hover {
+    transform: scale(1.15);
+    border-color: var(--color-text);
+}
+
+.color-swatch.active {
+    border-color: #fff;
+    box-shadow: 0 0 0 2px var(--color-primary);
+}
+
 /* --- Responsive --- */
 @media (max-width: 1100px) {
     .editor-layout {
