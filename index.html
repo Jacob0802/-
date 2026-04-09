@@ -415,7 +415,16 @@
                     <h3 class="card-title">Branding & Appearance</h3>
                     <p class="card-desc">Customize how your invoices look.</p>
                     <div class="form-group">
-                        <label class="form-label">Brand Color</label>
+                        <label class="form-label">Logo Size</label>
+                        <select class="form-select" id="set-logo-size">
+                            <option value="small">Small</option>
+                            <option value="medium" selected>Medium</option>
+                            <option value="large">Large</option>
+                            <option value="xlarge">Extra Large</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Brand / Accent Color</label>
                         <div class="color-picker-row">
                             <input type="color" class="color-input" id="set-brand-color" value="#6C5CE7">
                             <input type="text" class="form-input form-input-sm color-hex" id="set-brand-color-hex" value="#6C5CE7" maxlength="7" placeholder="#6C5CE7">
@@ -428,6 +437,31 @@
                                 <button class="color-swatch" data-color="#d63031" title="Red" style="background:#d63031"></button>
                             </div>
                         </div>
+                        <p class="field-hint">Used for invoice title, totals, and balance due.</p>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Heading Text Color</label>
+                        <div class="color-picker-row">
+                            <input type="color" class="color-input" id="set-heading-color" value="#1a1a2e">
+                            <input type="text" class="form-input form-input-sm color-hex" id="set-heading-color-hex" value="#1a1a2e" maxlength="7" placeholder="#1a1a2e">
+                        </div>
+                        <p class="field-hint">Your business name, client name, section titles.</p>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Body Text Color</label>
+                        <div class="color-picker-row">
+                            <input type="color" class="color-input" id="set-body-color" value="#333333">
+                            <input type="text" class="form-input form-input-sm color-hex" id="set-body-color-hex" value="#333333" maxlength="7" placeholder="#333333">
+                        </div>
+                        <p class="field-hint">Line item descriptions, addresses, main content.</p>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Label / Muted Text Color</label>
+                        <div class="color-picker-row">
+                            <input type="color" class="color-input" id="set-muted-color" value="#999999">
+                            <input type="text" class="form-input form-input-sm color-hex" id="set-muted-color-hex" value="#999999" maxlength="7" placeholder="#999999">
+                        </div>
+                        <p class="field-hint">Section labels like "FROM", "BILL TO", dates.</p>
                     </div>
                     <div class="form-group">
                         <label class="form-label">Invoice Footer Text</label>

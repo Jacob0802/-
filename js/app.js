@@ -395,6 +395,10 @@ const App = (() => {
             terms: $('#inv-terms').value,
             // Settings-derived fields
             brandColor: settings.brandColor || '#6C5CE7',
+            headingColor: settings.headingColor || '#1a1a2e',
+            bodyColor: settings.bodyColor || '#333333',
+            mutedColor: settings.mutedColor || '#999999',
+            logoSize: settings.logoSize || 'medium',
             website: settings.website || '',
             taxId: settings.taxId || '',
             regNumber: settings.regNumber || '',
@@ -427,59 +431,71 @@ const App = (() => {
         const paid = parseFloat(inv.amountPaid) || 0;
         const balance = total - paid;
 
+        // Theme colors and logo size
+        const brandColor = inv.brandColor || '#6C5CE7';
+        const headingColor = inv.headingColor || '#1a1a2e';
+        const bodyColor = inv.bodyColor || '#333333';
+        const mutedColor = inv.mutedColor || '#999999';
+        const logoSize = inv.logoSize || 'medium';
+
+        const logoSizeMap = {
+            small: { max: 60, width: 120 },
+            medium: { max: 90, width: 180 },
+            large: { max: 130, width: 240 },
+            xlarge: { max: 170, width: 300 }
+        };
+        const logoDims = logoSizeMap[logoSize] || logoSizeMap.medium;
+
         let itemsHtml = '';
         items.forEach(item => {
             const qty = parseFloat(item.quantity) || 0;
             const rate = parseFloat(item.rate) || 0;
             if (item.description || qty || rate) {
                 itemsHtml += `<tr>
-                    <td>${escapeHtml(item.description)}</td>
-                    <td class="td-qty">${qty}</td>
-                    <td class="td-rate">${InvoyPDF.formatMoney(rate, curr)}</td>
-                    <td>${InvoyPDF.formatMoney(qty * rate, curr)}</td>
+                    <td style="color:${bodyColor}">${escapeHtml(item.description)}</td>
+                    <td class="td-qty" style="color:${bodyColor}">${qty}</td>
+                    <td class="td-rate" style="color:${bodyColor}">${InvoyPDF.formatMoney(rate, curr)}</td>
+                    <td style="color:${bodyColor}">${InvoyPDF.formatMoney(qty * rate, curr)}</td>
                 </tr>`;
             }
         });
 
         const logoHtml = inv.logo
-            ? `<div class="inv-p-logo"><img src="${inv.logo}" alt="Logo"></div>`
-            : `<div class="inv-p-logo" style="font-size:16px;font-weight:700;color:#1a1a2e">${escapeHtml(inv.fromName)}</div>`;
+            ? `<div class="inv-p-logo"><img src="${inv.logo}" alt="Logo" style="max-height:${logoDims.max}px;max-width:${logoDims.width}px"></div>`
+            : `<div class="inv-p-logo" style="font-size:18px;font-weight:700;color:${headingColor}">${escapeHtml(inv.fromName)}</div>`;
 
-        let totalsHtml = `<div class="inv-p-totals-row"><span>Subtotal</span><span>${InvoyPDF.formatMoney(subtotal, curr)}</span></div>`;
+        let totalsHtml = `<div class="inv-p-totals-row" style="color:${bodyColor}"><span>Subtotal</span><span>${InvoyPDF.formatMoney(subtotal, curr)}</span></div>`;
         if (discountAmount > 0) {
             const dLabel = inv.discountType === 'percentage' ? `Discount (${inv.discount}%)` : 'Discount';
-            totalsHtml += `<div class="inv-p-totals-row"><span>${dLabel}</span><span>-${InvoyPDF.formatMoney(discountAmount, curr)}</span></div>`;
+            totalsHtml += `<div class="inv-p-totals-row" style="color:${bodyColor}"><span>${dLabel}</span><span>-${InvoyPDF.formatMoney(discountAmount, curr)}</span></div>`;
         }
         if (parseFloat(inv.taxRate) > 0) {
-            totalsHtml += `<div class="inv-p-totals-row"><span>Tax (${inv.taxRate}%)</span><span>${InvoyPDF.formatMoney(taxAmount, curr)}</span></div>`;
+            totalsHtml += `<div class="inv-p-totals-row" style="color:${bodyColor}"><span>Tax (${inv.taxRate}%)</span><span>${InvoyPDF.formatMoney(taxAmount, curr)}</span></div>`;
         }
-        const previewBrandColor = (settings.brandColor || '#6C5CE7');
-        totalsHtml += `<div class="inv-p-totals-row inv-p-totals-total" style="border-top-color:${previewBrandColor}"><span>Total</span><span>${InvoyPDF.formatMoney(total, curr)}</span></div>`;
+        totalsHtml += `<div class="inv-p-totals-row inv-p-totals-total" style="border-top-color:${brandColor};color:${headingColor}"><span>Total</span><span>${InvoyPDF.formatMoney(total, curr)}</span></div>`;
         if (paid > 0) {
-            totalsHtml += `<div class="inv-p-totals-row"><span>Amount Paid</span><span>${InvoyPDF.formatMoney(paid, curr)}</span></div>`;
+            totalsHtml += `<div class="inv-p-totals-row" style="color:${bodyColor}"><span>Amount Paid</span><span>${InvoyPDF.formatMoney(paid, curr)}</span></div>`;
         }
-        totalsHtml += `<div class="inv-p-totals-row inv-p-totals-due" style="color:${previewBrandColor}"><span>Balance Due</span><span>${InvoyPDF.formatMoney(balance, curr)}</span></div>`;
+        totalsHtml += `<div class="inv-p-totals-row inv-p-totals-due" style="color:${brandColor}"><span>Balance Due</span><span>${InvoyPDF.formatMoney(balance, curr)}</span></div>`;
 
         let notesHtml = '';
         if (inv.notes) {
-            notesHtml += `<div class="inv-p-notes"><h4>Notes</h4><p>${escapeHtml(inv.notes)}</p></div>`;
+            notesHtml += `<div class="inv-p-notes"><h4 style="color:${mutedColor}">Notes</h4><p style="color:${bodyColor}">${escapeHtml(inv.notes)}</p></div>`;
         }
         if (inv.terms) {
-            notesHtml += `<div class="inv-p-notes"><h4>Terms & Conditions</h4><p>${escapeHtml(inv.terms)}</p></div>`;
+            notesHtml += `<div class="inv-p-notes"><h4 style="color:${mutedColor}">Terms & Conditions</h4><p style="color:${bodyColor}">${escapeHtml(inv.terms)}</p></div>`;
         }
-
-        const brandColor = inv.brandColor || '#6C5CE7';
 
         // Extra from-info lines
         let fromExtra = '';
-        if (inv.website) fromExtra += `<p>${escapeHtml(inv.website)}</p>`;
-        if (inv.taxId) fromExtra += `<p style="font-size:10px;color:#888">Tax ID: ${escapeHtml(inv.taxId)}</p>`;
-        if (inv.regNumber) fromExtra += `<p style="font-size:10px;color:#888">Reg #: ${escapeHtml(inv.regNumber)}</p>`;
+        if (inv.website) fromExtra += `<p style="color:${brandColor}">${escapeHtml(inv.website)}</p>`;
+        if (inv.taxId) fromExtra += `<p style="font-size:10px;color:${mutedColor}">Tax ID: ${escapeHtml(inv.taxId)}</p>`;
+        if (inv.regNumber) fromExtra += `<p style="font-size:10px;color:${mutedColor}">Reg #: ${escapeHtml(inv.regNumber)}</p>`;
 
         // Payment instructions
         let paymentHtml = '';
         if (inv.paymentInstructions) {
-            paymentHtml = `<div class="inv-p-notes"><h4>Payment Instructions</h4><p>${escapeHtml(inv.paymentInstructions)}</p></div>`;
+            paymentHtml = `<div class="inv-p-notes"><h4 style="color:${mutedColor}">Payment Instructions</h4><p style="color:${bodyColor}">${escapeHtml(inv.paymentInstructions)}</p></div>`;
         }
 
         // Footer text
@@ -492,36 +508,36 @@ const App = (() => {
                 ${logoHtml}
                 <div>
                     <div class="inv-p-title" style="color:${brandColor}">INVOICE</div>
-                    <div class="inv-p-number">${escapeHtml(inv.number)}</div>
+                    <div class="inv-p-number" style="color:${mutedColor}">${escapeHtml(inv.number)}</div>
                 </div>
             </div>
             <div class="inv-p-parties">
                 <div class="inv-p-party">
-                    <h4>From</h4>
-                    <p class="party-name">${escapeHtml(inv.fromName)}</p>
-                    <p>${escapeHtml(inv.fromEmail)}</p>
-                    <p>${escapeHtml(inv.fromAddress)}</p>
-                    <p>${escapeHtml(inv.fromPhone)}</p>
+                    <h4 style="color:${mutedColor}">From</h4>
+                    <p class="party-name" style="color:${headingColor}">${escapeHtml(inv.fromName)}</p>
+                    <p style="color:${bodyColor}">${escapeHtml(inv.fromEmail)}</p>
+                    <p style="color:${bodyColor}">${escapeHtml(inv.fromAddress)}</p>
+                    <p style="color:${bodyColor}">${escapeHtml(inv.fromPhone)}</p>
                     ${fromExtra}
                 </div>
                 <div class="inv-p-party" style="text-align:right">
-                    <h4>Bill To</h4>
-                    <p class="party-name">${escapeHtml(inv.toName)}</p>
-                    <p>${escapeHtml(inv.toEmail)}</p>
-                    <p>${escapeHtml(inv.toAddress)}</p>
+                    <h4 style="color:${mutedColor}">Bill To</h4>
+                    <p class="party-name" style="color:${headingColor}">${escapeHtml(inv.toName)}</p>
+                    <p style="color:${bodyColor}">${escapeHtml(inv.toEmail)}</p>
+                    <p style="color:${bodyColor}">${escapeHtml(inv.toAddress)}</p>
                 </div>
             </div>
             <div class="inv-p-meta">
-                <div class="inv-p-meta-item"><label>Issue Date</label><span>${InvoyPDF.formatDate(inv.date)}</span></div>
-                <div class="inv-p-meta-item"><label>Due Date</label><span>${InvoyPDF.formatDate(inv.dueDate)}</span></div>
-                <div class="inv-p-meta-item"><label>Status</label><span>${(inv.status || 'draft').toUpperCase()}</span></div>
+                <div class="inv-p-meta-item"><label style="color:${mutedColor}">Issue Date</label><span style="color:${headingColor}">${InvoyPDF.formatDate(inv.date)}</span></div>
+                <div class="inv-p-meta-item"><label style="color:${mutedColor}">Due Date</label><span style="color:${headingColor}">${InvoyPDF.formatDate(inv.dueDate)}</span></div>
+                <div class="inv-p-meta-item"><label style="color:${mutedColor}">Status</label><span style="color:${headingColor}">${(inv.status || 'draft').toUpperCase()}</span></div>
             </div>
             <table class="inv-p-table">
                 <thead><tr>
-                    <th>Description</th>
-                    <th class="th-qty">Qty</th>
-                    <th class="th-rate">Rate</th>
-                    <th style="text-align:right">Amount</th>
+                    <th style="color:${mutedColor}">Description</th>
+                    <th class="th-qty" style="color:${mutedColor}">Qty</th>
+                    <th class="th-rate" style="color:${mutedColor}">Rate</th>
+                    <th style="text-align:right;color:${mutedColor}">Amount</th>
                 </tr></thead>
                 <tbody>${itemsHtml || '<tr><td colspan="4" style="text-align:center;color:#ccc;padding:20px">Add line items to see them here</td></tr>'}</tbody>
             </table>
@@ -529,7 +545,7 @@ const App = (() => {
             ${paymentHtml}
             ${notesHtml}
             <div class="inv-p-footer">
-                <a>${footerText}</a>
+                <a style="color:${mutedColor};opacity:0.7">${footerText}</a>
             </div>
         `;
     }
@@ -686,6 +702,13 @@ const App = (() => {
             $('#set-terms').value = settings.defaultTerms || '';
             $('#set-brand-color').value = settings.brandColor || '#6C5CE7';
             $('#set-brand-color-hex').value = settings.brandColor || '#6C5CE7';
+            $('#set-heading-color').value = settings.headingColor || '#1a1a2e';
+            $('#set-heading-color-hex').value = settings.headingColor || '#1a1a2e';
+            $('#set-body-color').value = settings.bodyColor || '#333333';
+            $('#set-body-color-hex').value = settings.bodyColor || '#333333';
+            $('#set-muted-color').value = settings.mutedColor || '#999999';
+            $('#set-muted-color-hex').value = settings.mutedColor || '#999999';
+            $('#set-logo-size').value = settings.logoSize || 'medium';
             $('#set-footer-text').value = settings.footerText || '';
             $('#set-payment-instructions').value = settings.paymentInstructions || '';
 
@@ -736,6 +759,10 @@ const App = (() => {
             defaultNotes: $('#set-notes').value,
             defaultTerms: $('#set-terms').value,
             brandColor: $('#set-brand-color').value,
+            headingColor: $('#set-heading-color').value,
+            bodyColor: $('#set-body-color').value,
+            mutedColor: $('#set-muted-color').value,
+            logoSize: $('#set-logo-size').value,
             footerText: $('#set-footer-text').value,
             paymentInstructions: $('#set-payment-instructions').value,
             logo: settings.logo || null
@@ -912,19 +939,25 @@ const App = (() => {
             showToast('Logo removed', 'success');
         });
 
-        // Settings: Brand color picker sync
-        $('#set-brand-color').addEventListener('input', (e) => {
-            $('#set-brand-color-hex').value = e.target.value;
-            updateColorSwatches(e.target.value);
-        });
+        // Settings: Color picker sync (reusable)
+        function bindColorSync(pickerId, hexId, onChange) {
+            $(pickerId).addEventListener('input', (e) => {
+                $(hexId).value = e.target.value.toUpperCase();
+                if (onChange) onChange(e.target.value);
+            });
+            $(hexId).addEventListener('input', (e) => {
+                const val = e.target.value;
+                if (/^#[0-9a-fA-F]{6}$/.test(val)) {
+                    $(pickerId).value = val;
+                    if (onChange) onChange(val);
+                }
+            });
+        }
 
-        $('#set-brand-color-hex').addEventListener('input', (e) => {
-            const val = e.target.value;
-            if (/^#[0-9a-fA-F]{6}$/.test(val)) {
-                $('#set-brand-color').value = val;
-                updateColorSwatches(val);
-            }
-        });
+        bindColorSync('#set-brand-color', '#set-brand-color-hex', updateColorSwatches);
+        bindColorSync('#set-heading-color', '#set-heading-color-hex');
+        bindColorSync('#set-body-color', '#set-body-color-hex');
+        bindColorSync('#set-muted-color', '#set-muted-color-hex');
 
         // Settings: Color preset swatches
         $('#color-presets').addEventListener('click', (e) => {
