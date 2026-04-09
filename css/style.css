@@ -889,6 +889,193 @@ a:hover { color: var(--color-primary-hover); }
     margin-top: 4px;
 }
 
+/* --- Search Input (dashboard) --- */
+.search-input-wrap {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.search-input-wrap .search-icon {
+    position: absolute;
+    left: 10px;
+    color: var(--color-text-muted);
+    pointer-events: none;
+}
+
+.search-input-wrap input {
+    padding-left: 30px !important;
+    min-width: 220px;
+}
+
+/* --- Revenue Chart --- */
+.revenue-chart {
+    display: flex;
+    align-items: flex-end;
+    gap: 6px;
+    height: 140px;
+    padding: 10px 0;
+}
+
+.chart-bar-wrap {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+}
+
+.chart-bar {
+    width: 100%;
+    max-width: 40px;
+    background: linear-gradient(180deg, var(--color-primary), rgba(108, 92, 231, 0.5));
+    border-radius: 4px 4px 0 0;
+    min-height: 2px;
+    transition: all var(--transition);
+    cursor: pointer;
+    position: relative;
+}
+
+.chart-bar:hover {
+    background: linear-gradient(180deg, var(--color-primary-hover), var(--color-primary));
+}
+
+.chart-bar-wrap .bar-label {
+    font-size: 0.68rem;
+    color: var(--color-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+.chart-bar-wrap .bar-value {
+    font-size: 0.68rem;
+    color: var(--color-text-muted);
+    margin-bottom: 4px;
+    opacity: 0;
+    transition: opacity var(--transition);
+    white-space: nowrap;
+}
+
+.chart-bar-wrap:hover .bar-value { opacity: 1; }
+
+/* --- Checkbox Grid (settings) --- */
+.checkbox-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px 16px;
+}
+
+.checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.85rem;
+    color: var(--color-text-secondary);
+    cursor: pointer;
+    user-select: none;
+}
+
+.checkbox-label input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    accent-color: var(--color-primary);
+    cursor: pointer;
+}
+
+/* --- Row Actions (dashboard) --- */
+.invoice-list-item .row-actions {
+    display: flex;
+    gap: 4px;
+    opacity: 0;
+    transition: opacity var(--transition);
+}
+
+.invoice-list-item:hover .row-actions { opacity: 1; }
+
+.row-action-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: var(--radius-sm);
+    color: var(--color-text-muted);
+    cursor: pointer;
+    transition: all var(--transition);
+}
+
+.row-action-btn:hover {
+    background: var(--color-surface-active);
+    color: var(--color-text);
+}
+
+.row-action-btn.danger:hover {
+    background: var(--color-danger-light);
+    color: var(--color-danger);
+}
+
+/* --- Auto-save indicator --- */
+.autosave-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.78rem;
+    color: var(--color-text-muted);
+    padding: 6px 10px;
+}
+
+.autosave-indicator.saving { color: var(--color-warning); }
+.autosave-indicator.saved { color: var(--color-success); }
+
+.autosave-indicator .dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: currentColor;
+}
+
+/* --- Document type badge --- */
+.doc-type-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 0.68rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.doc-type-invoice { background: var(--color-primary-light); color: var(--color-primary); }
+.doc-type-estimate { background: var(--color-info-light); color: var(--color-info); }
+
+/* Status variants for estimates */
+.status-accepted { background: var(--color-success-light); color: var(--color-success); }
+.status-declined { background: var(--color-danger-light); color: var(--color-danger); }
+
+/* --- Confirmation dialog --- */
+.confirm-text {
+    font-size: 0.9rem;
+    color: var(--color-text-secondary);
+    line-height: 1.5;
+    margin: 4px 0 16px;
+}
+
+/* --- Kbd hint --- */
+.kbd {
+    display: inline-block;
+    padding: 1px 6px;
+    font-family: monospace;
+    font-size: 0.75rem;
+    background: var(--color-surface-active);
+    border: 1px solid var(--color-border);
+    border-radius: 3px;
+    color: var(--color-text-secondary);
+}
+
 /* --- Responsive --- */
 @media (max-width: 1100px) {
     .editor-layout {

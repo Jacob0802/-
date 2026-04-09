@@ -63,6 +63,7 @@ const App = (() => {
         const viewMap = {
             'dashboard': 'view-dashboard',
             'new': 'view-editor',
+            'new-estimate': 'view-editor',
             'edit': 'view-editor',
             'clients': 'view-clients',
             'settings': 'view-settings'
@@ -80,7 +81,8 @@ const App = (() => {
 
         // Update nav
         $$('.nav-link').forEach(l => l.classList.remove('active'));
-        const activeLink = $(`.nav-link[data-view="${viewKey === 'edit' ? 'editor' : viewKey === 'new' ? 'editor' : viewKey}"]`);
+        const navKey = (viewKey === 'edit' || viewKey === 'new-estimate') ? 'editor' : (viewKey === 'new' ? 'editor' : viewKey);
+        const activeLink = $(`.nav-link[data-view="${navKey}"]`);
         if (activeLink) activeLink.classList.add('active');
 
         // Close mobile sidebar
@@ -88,18 +90,22 @@ const App = (() => {
 
         // View-specific init
         if (viewKey === 'dashboard') loadDashboard();
-        else if (viewKey === 'new') initNewInvoice();
+        else if (viewKey === 'new') initNewInvoice('invoice');
+        else if (viewKey === 'new-estimate') initNewInvoice('estimate');
         else if (viewKey === 'edit') initEditInvoice(hash.split('/')[1]);
         else if (viewKey === 'clients') loadClients();
         else if (viewKey === 'settings') loadSettings();
     }
 
     // ==================== DASHBOARD ====================
-    async function loadDashboard() {
-        const invoices = await InvoyDB.getAllInvoices();
-        invoices.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    let _allDocs = [];
 
-        // Stats
+    async function loadDashboard() {
+        const all = await InvoyDB.getAllInvoices();
+        _allDocs = all;
+
+        // Stats (only invoices, not estimates)
+        const invoices = all.filter(i => (i.docType || 'invoice') === 'invoice');
         let totalRevenue = 0, outstanding = 0, overdue = 0;
         const today = todayStr();
 
@@ -120,48 +126,132 @@ const App = (() => {
         $('#stat-revenue').textContent = InvoyPDF.formatMoney(totalRevenue, curr);
         $('#stat-outstanding').textContent = InvoyPDF.formatMoney(outstanding, curr);
         $('#stat-overdue').textContent = InvoyPDF.formatMoney(overdue, curr);
-        $('#stat-count').textContent = invoices.length;
+        $('#stat-count').textContent = all.length;
 
-        // Filter
-        const statusFilter = $('#filter-status').value;
-        const filtered = statusFilter === 'all' ? invoices : invoices.filter(i => i.status === statusFilter);
+        renderRevenueChart(invoices, curr);
+        renderDocList();
+    }
 
-        // Render list
+    function renderDocList() {
+        const typeFilter = $('#filter-type')?.value || 'all';
+        const statusFilter = $('#filter-status')?.value || 'all';
+        const sortBy = $('#sort-by')?.value || 'date-desc';
+        const search = ($('#search-input')?.value || '').trim().toLowerCase();
+
+        let filtered = [..._allDocs];
+
+        if (typeFilter !== 'all') {
+            filtered = filtered.filter(d => (d.docType || 'invoice') === typeFilter);
+        }
+        if (statusFilter !== 'all') {
+            filtered = filtered.filter(d => d.status === statusFilter);
+        }
+        if (search) {
+            filtered = filtered.filter(d =>
+                (d.number || '').toLowerCase().includes(search) ||
+                (d.toName || '').toLowerCase().includes(search) ||
+                (d.toEmail || '').toLowerCase().includes(search)
+            );
+        }
+
+        // Sort
+        filtered.sort((a, b) => {
+            switch (sortBy) {
+                case 'date-desc': return new Date(b.date || b.createdAt) - new Date(a.date || a.createdAt);
+                case 'date-asc':  return new Date(a.date || a.createdAt) - new Date(b.date || b.createdAt);
+                case 'amount-desc': return computeTotal(b) - computeTotal(a);
+                case 'amount-asc':  return computeTotal(a) - computeTotal(b);
+                case 'client': return (a.toName || '').localeCompare(b.toName || '');
+                case 'number': return (a.number || '').localeCompare(b.number || '', undefined, { numeric: true });
+                default: return 0;
+            }
+        });
+
         const listEl = $('#invoice-list');
         const emptyEl = $('#dashboard-empty');
+        listEl.querySelectorAll('.invoice-list-item').forEach(el => el.remove());
 
         if (filtered.length === 0) {
             emptyEl.style.display = 'flex';
-            // Remove any previous items
-            listEl.querySelectorAll('.invoice-list-item').forEach(el => el.remove());
+            emptyEl.querySelector('p').textContent = search || typeFilter !== 'all' || statusFilter !== 'all'
+                ? 'No documents match your filters.'
+                : 'No invoices yet. Create your first one!';
             return;
         }
 
         emptyEl.style.display = 'none';
+        const curr = settings.currency || 'USD';
         const fragment = document.createDocumentFragment();
 
         filtered.forEach(inv => {
             const total = computeTotal(inv);
             const invCurr = inv.currency || curr;
+            const docType = inv.docType || 'invoice';
             const el = document.createElement('div');
             el.className = 'invoice-list-item';
             el.innerHTML = `
-                <span class="inv-list-number">${escapeHtml(inv.number)}</span>
+                <span class="inv-list-number">
+                    <span class="doc-type-badge doc-type-${docType}">${docType === 'estimate' ? 'EST' : 'INV'}</span>
+                    ${escapeHtml(inv.number)}
+                </span>
                 <span class="inv-list-client">${escapeHtml(inv.toName || 'No client')}</span>
                 <span class="inv-list-date">${InvoyPDF.formatDate(inv.date)}</span>
                 <span class="status-badge status-${inv.status}">${inv.status}</span>
                 <span class="inv-list-amount">${InvoyPDF.formatMoney(total, invCurr)}</span>
+                <span class="row-actions">
+                    <button class="row-action-btn" data-action="duplicate" data-id="${inv.id}" title="Duplicate">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                    </button>
+                    <button class="row-action-btn danger" data-action="delete" data-id="${inv.id}" title="Delete">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                    </button>
+                </span>
             `;
             el.addEventListener('click', (e) => {
-                if (e.target.closest('.inv-list-actions')) return;
+                if (e.target.closest('.row-actions')) return;
                 location.hash = `#edit/${inv.id}`;
             });
             fragment.appendChild(el);
         });
 
-        // Clear previous items but keep empty state
-        listEl.querySelectorAll('.invoice-list-item').forEach(el => el.remove());
         listEl.appendChild(fragment);
+    }
+
+    function renderRevenueChart(invoices, curr) {
+        const container = $('#revenue-chart');
+        if (!container) return;
+
+        // Build 12 month buckets ending this month
+        const now = new Date();
+        const buckets = [];
+        for (let i = 11; i >= 0; i--) {
+            const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+            buckets.push({
+                key: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`,
+                label: d.toLocaleDateString('en-US', { month: 'short' }),
+                total: 0
+            });
+        }
+
+        // Fill buckets with paid invoice totals by month
+        invoices.forEach(inv => {
+            if (inv.status !== 'paid' || !inv.date) return;
+            const key = inv.date.substring(0, 7);
+            const bucket = buckets.find(b => b.key === key);
+            if (bucket) bucket.total += computeTotal(inv);
+        });
+
+        const max = Math.max(...buckets.map(b => b.total), 1);
+        container.innerHTML = buckets.map(b => {
+            const height = Math.max((b.total / max) * 100, 1);
+            return `
+                <div class="chart-bar-wrap">
+                    <div class="bar-value">${InvoyPDF.formatMoney(b.total, curr)}</div>
+                    <div class="chart-bar" style="height:${height}%" title="${b.label}: ${InvoyPDF.formatMoney(b.total, curr)}"></div>
+                    <div class="bar-label">${b.label}</div>
+                </div>
+            `;
+        }).join('');
     }
 
     function computeTotal(inv) {
@@ -179,13 +269,21 @@ const App = (() => {
     }
 
     // ==================== INVOICE EDITOR ====================
-    async function initNewInvoice() {
+    let currentDocType = 'invoice';
+
+    async function initNewInvoice(docType = 'invoice') {
         editingInvoiceId = null;
-        $('#editor-title').textContent = 'New Invoice';
+        currentDocType = docType;
+        $('#editor-title').textContent = docType === 'estimate' ? 'New Estimate' : 'New Invoice';
+        $('#btn-convert').style.display = docType === 'estimate' ? 'inline-flex' : 'none';
         await loadSettings();
 
-        const prefix = settings.prefix || 'INV';
-        const nextNum = parseInt(settings.nextNum) || 1;
+        const prefix = docType === 'estimate'
+            ? (settings.estPrefix || 'EST')
+            : (settings.prefix || 'INV');
+        const nextNum = docType === 'estimate'
+            ? (parseInt(settings.estNextNum) || 1)
+            : (parseInt(settings.nextNum) || 1);
         const number = `${prefix}-${String(nextNum).padStart(3, '0')}`;
         const dueDays = parseInt(settings.dueDays) || 30;
 
@@ -234,10 +332,13 @@ const App = (() => {
         if (!id) { location.hash = '#dashboard'; return; }
 
         const inv = await InvoyDB.getInvoice(id);
-        if (!inv) { showToast('Invoice not found', 'error'); location.hash = '#dashboard'; return; }
+        if (!inv) { showToast('Document not found', 'error'); location.hash = '#dashboard'; return; }
 
         editingInvoiceId = id;
-        $('#editor-title').textContent = `Edit ${inv.number}`;
+        currentDocType = inv.docType || 'invoice';
+        const docLabel = currentDocType === 'estimate' ? 'Estimate' : 'Invoice';
+        $('#editor-title').textContent = `Edit ${docLabel} ${inv.number}`;
+        $('#btn-convert').style.display = currentDocType === 'estimate' ? 'inline-flex' : 'none';
 
         $('#inv-number').value = inv.number || '';
         $('#inv-status').value = inv.status || 'draft';
@@ -372,6 +473,7 @@ const App = (() => {
     function getInvoiceFromForm() {
         return {
             id: editingInvoiceId || uuid(),
+            docType: currentDocType,
             number: $('#inv-number').value,
             status: $('#inv-status').value,
             date: $('#inv-date').value,
@@ -403,7 +505,21 @@ const App = (() => {
             taxId: settings.taxId || '',
             regNumber: settings.regNumber || '',
             footerText: settings.footerText || '',
-            paymentInstructions: settings.paymentInstructions || ''
+            paymentInstructions: settings.paymentInstructions || '',
+            // Document layout customization
+            paperSize: settings.paperSize || 'A4',
+            dateFormat: settings.dateFormat || 'short',
+            fontFamily: settings.fontFamily || 'Roboto',
+            headerAlign: settings.headerAlign || 'split',
+            docTitle: settings.docTitle || 'INVOICE',
+            estTitle: settings.estTitle || 'ESTIMATE',
+            accentBar: settings.accentBar || 'none',
+            showQty: settings.showQty !== false,
+            showRate: settings.showRate !== false,
+            showStatus: settings.showStatus !== false,
+            showCurrency: settings.showCurrency !== false,
+            showDue: settings.showDue !== false,
+            showFooter: settings.showFooter !== false
         };
     }
 
@@ -437,6 +553,23 @@ const App = (() => {
         const bodyColor = inv.bodyColor || '#333333';
         const mutedColor = inv.mutedColor || '#999999';
         const logoSize = inv.logoSize || 'medium';
+        const fontFamily = inv.fontFamily || 'Roboto';
+        const headerAlign = inv.headerAlign || 'split';
+        const accentBar = inv.accentBar || 'none';
+        const showQty = inv.showQty !== false;
+        const showRate = inv.showRate !== false;
+        const showStatus = inv.showStatus !== false;
+        const showCurrency = inv.showCurrency !== false;
+        const showDue = inv.showDue !== false;
+        const showFooter = inv.showFooter !== false;
+
+        const fontMap = {
+            Roboto: 'Inter, sans-serif',
+            Helvetica: 'Helvetica, Arial, sans-serif',
+            Times: '"Times New Roman", Times, serif',
+            Courier: '"Courier New", Courier, monospace'
+        };
+        const previewFont = fontMap[fontFamily] || fontMap.Roboto;
 
         const logoSizeMap = {
             small: { max: 60, width: 120 },
@@ -446,17 +579,30 @@ const App = (() => {
         };
         const logoDims = logoSizeMap[logoSize] || logoSizeMap.medium;
 
+        // Title (estimate vs invoice)
+        const isEstimate = inv.docType === 'estimate';
+        const titleText = isEstimate
+            ? (inv.estTitle || 'ESTIMATE')
+            : (inv.docTitle || 'INVOICE');
+
+        // Format date based on settings
+        const fmtDate = (dateStr) => formatDateCustom(dateStr, inv.dateFormat || 'short');
+
+        // Calculate total columns for the table (based on show/hide)
+        let numCols = 2; // description + amount
+        if (showQty) numCols++;
+        if (showRate) numCols++;
+
         let itemsHtml = '';
         items.forEach(item => {
             const qty = parseFloat(item.quantity) || 0;
             const rate = parseFloat(item.rate) || 0;
             if (item.description || qty || rate) {
-                itemsHtml += `<tr>
-                    <td style="color:${bodyColor}">${escapeHtml(item.description)}</td>
-                    <td class="td-qty" style="color:${bodyColor}">${qty}</td>
-                    <td class="td-rate" style="color:${bodyColor}">${InvoyPDF.formatMoney(rate, curr)}</td>
-                    <td style="color:${bodyColor}">${InvoyPDF.formatMoney(qty * rate, curr)}</td>
-                </tr>`;
+                let row = `<td style="color:${bodyColor}">${escapeHtml(item.description)}</td>`;
+                if (showQty) row += `<td class="td-qty" style="color:${bodyColor}">${qty}</td>`;
+                if (showRate) row += `<td class="td-rate" style="color:${bodyColor}">${InvoyPDF.formatMoney(rate, curr)}</td>`;
+                row += `<td style="color:${bodyColor}">${InvoyPDF.formatMoney(qty * rate, curr)}</td>`;
+                itemsHtml += `<tr>${row}</tr>`;
             }
         });
 
@@ -473,10 +619,12 @@ const App = (() => {
             totalsHtml += `<div class="inv-p-totals-row" style="color:${bodyColor}"><span>Tax (${inv.taxRate}%)</span><span>${InvoyPDF.formatMoney(taxAmount, curr)}</span></div>`;
         }
         totalsHtml += `<div class="inv-p-totals-row inv-p-totals-total" style="border-top-color:${brandColor};color:${headingColor}"><span>Total</span><span>${InvoyPDF.formatMoney(total, curr)}</span></div>`;
-        if (paid > 0) {
+        if (paid > 0 && !isEstimate) {
             totalsHtml += `<div class="inv-p-totals-row" style="color:${bodyColor}"><span>Amount Paid</span><span>${InvoyPDF.formatMoney(paid, curr)}</span></div>`;
         }
-        totalsHtml += `<div class="inv-p-totals-row inv-p-totals-due" style="color:${brandColor}"><span>Balance Due</span><span>${InvoyPDF.formatMoney(balance, curr)}</span></div>`;
+        if (!isEstimate) {
+            totalsHtml += `<div class="inv-p-totals-row inv-p-totals-due" style="color:${brandColor}"><span>Balance Due</span><span>${InvoyPDF.formatMoney(balance, curr)}</span></div>`;
+        }
 
         let notesHtml = '';
         if (inv.notes) {
@@ -492,9 +640,9 @@ const App = (() => {
         if (inv.taxId) fromExtra += `<p style="font-size:10px;color:${mutedColor}">Tax ID: ${escapeHtml(inv.taxId)}</p>`;
         if (inv.regNumber) fromExtra += `<p style="font-size:10px;color:${mutedColor}">Reg #: ${escapeHtml(inv.regNumber)}</p>`;
 
-        // Payment instructions
+        // Payment instructions (only for invoices)
         let paymentHtml = '';
-        if (inv.paymentInstructions) {
+        if (inv.paymentInstructions && !isEstimate) {
             paymentHtml = `<div class="inv-p-notes"><h4 style="color:${mutedColor}">Payment Instructions</h4><p style="color:${bodyColor}">${escapeHtml(inv.paymentInstructions)}</p></div>`;
         }
 
@@ -503,63 +651,129 @@ const App = (() => {
             ? escapeHtml(inv.footerText)
             : 'Created with Invoy &mdash; Free Invoice Generator';
 
+        // Header layout
+        const titleBlock = `
+            <div>
+                <div class="inv-p-title" style="color:${brandColor}">${escapeHtml(titleText)}</div>
+                <div class="inv-p-number" style="color:${mutedColor}">${escapeHtml(inv.number)}</div>
+            </div>
+        `;
+
+        let headerHtml = '';
+        if (headerAlign === 'center') {
+            headerHtml = `
+                <div class="inv-p-header" style="flex-direction:column;align-items:center;text-align:center;gap:10px">
+                    ${logoHtml}
+                    ${titleBlock}
+                </div>
+            `;
+        } else if (headerAlign === 'left') {
+            headerHtml = `
+                <div class="inv-p-header" style="flex-direction:column;align-items:flex-start;gap:10px">
+                    ${logoHtml}
+                    <div style="text-align:left">
+                        <div class="inv-p-title" style="color:${brandColor}">${escapeHtml(titleText)}</div>
+                        <div class="inv-p-number" style="color:${mutedColor}">${escapeHtml(inv.number)}</div>
+                    </div>
+                </div>
+            `;
+        } else {
+            // split (default)
+            headerHtml = `
+                <div class="inv-p-header">
+                    ${logoHtml}
+                    ${titleBlock}
+                </div>
+            `;
+        }
+
+        // Accent bar
+        const barTop = (accentBar === 'top' || accentBar === 'both')
+            ? `<div style="height:6px;background:${brandColor};margin:-40px -40px 30px"></div>`
+            : '';
+        const barBottom = (accentBar === 'bottom' || accentBar === 'both')
+            ? `<div style="height:6px;background:${brandColor};margin:30px -40px -40px"></div>`
+            : '';
+
+        // Meta row with show/hide
+        const metaItems = [
+            `<div class="inv-p-meta-item"><label style="color:${mutedColor}">Issue Date</label><span style="color:${headingColor}">${fmtDate(inv.date)}</span></div>`
+        ];
+        if (showDue && !isEstimate) metaItems.push(`<div class="inv-p-meta-item"><label style="color:${mutedColor}">Due Date</label><span style="color:${headingColor}">${fmtDate(inv.dueDate)}</span></div>`);
+        if (isEstimate && inv.dueDate) metaItems.push(`<div class="inv-p-meta-item"><label style="color:${mutedColor}">Valid Until</label><span style="color:${headingColor}">${fmtDate(inv.dueDate)}</span></div>`);
+        if (showStatus) metaItems.push(`<div class="inv-p-meta-item"><label style="color:${mutedColor}">Status</label><span style="color:${headingColor}">${(inv.status || 'draft').toUpperCase()}</span></div>`);
+        if (showCurrency) metaItems.push(`<div class="inv-p-meta-item"><label style="color:${mutedColor}">Currency</label><span style="color:${headingColor}">${curr}</span></div>`);
+
+        // Table headers with show/hide
+        let theadHtml = `<th style="color:${mutedColor}">Description</th>`;
+        if (showQty) theadHtml += `<th class="th-qty" style="color:${mutedColor}">Qty</th>`;
+        if (showRate) theadHtml += `<th class="th-rate" style="color:${mutedColor}">Rate</th>`;
+        theadHtml += `<th style="text-align:right;color:${mutedColor}">Amount</th>`;
+
         $('#invoice-preview').innerHTML = `
-            <div class="inv-p-header">
-                ${logoHtml}
-                <div>
-                    <div class="inv-p-title" style="color:${brandColor}">INVOICE</div>
-                    <div class="inv-p-number" style="color:${mutedColor}">${escapeHtml(inv.number)}</div>
+            <div style="font-family:${previewFont}">
+                ${barTop}
+                ${headerHtml}
+                <div class="inv-p-parties">
+                    <div class="inv-p-party">
+                        <h4 style="color:${mutedColor}">From</h4>
+                        <p class="party-name" style="color:${headingColor}">${escapeHtml(inv.fromName)}</p>
+                        <p style="color:${bodyColor}">${escapeHtml(inv.fromEmail)}</p>
+                        <p style="color:${bodyColor}">${escapeHtml(inv.fromAddress)}</p>
+                        <p style="color:${bodyColor}">${escapeHtml(inv.fromPhone)}</p>
+                        ${fromExtra}
+                    </div>
+                    <div class="inv-p-party" style="text-align:right">
+                        <h4 style="color:${mutedColor}">${isEstimate ? 'Prepared For' : 'Bill To'}</h4>
+                        <p class="party-name" style="color:${headingColor}">${escapeHtml(inv.toName)}</p>
+                        <p style="color:${bodyColor}">${escapeHtml(inv.toEmail)}</p>
+                        <p style="color:${bodyColor}">${escapeHtml(inv.toAddress)}</p>
+                    </div>
                 </div>
-            </div>
-            <div class="inv-p-parties">
-                <div class="inv-p-party">
-                    <h4 style="color:${mutedColor}">From</h4>
-                    <p class="party-name" style="color:${headingColor}">${escapeHtml(inv.fromName)}</p>
-                    <p style="color:${bodyColor}">${escapeHtml(inv.fromEmail)}</p>
-                    <p style="color:${bodyColor}">${escapeHtml(inv.fromAddress)}</p>
-                    <p style="color:${bodyColor}">${escapeHtml(inv.fromPhone)}</p>
-                    ${fromExtra}
-                </div>
-                <div class="inv-p-party" style="text-align:right">
-                    <h4 style="color:${mutedColor}">Bill To</h4>
-                    <p class="party-name" style="color:${headingColor}">${escapeHtml(inv.toName)}</p>
-                    <p style="color:${bodyColor}">${escapeHtml(inv.toEmail)}</p>
-                    <p style="color:${bodyColor}">${escapeHtml(inv.toAddress)}</p>
-                </div>
-            </div>
-            <div class="inv-p-meta">
-                <div class="inv-p-meta-item"><label style="color:${mutedColor}">Issue Date</label><span style="color:${headingColor}">${InvoyPDF.formatDate(inv.date)}</span></div>
-                <div class="inv-p-meta-item"><label style="color:${mutedColor}">Due Date</label><span style="color:${headingColor}">${InvoyPDF.formatDate(inv.dueDate)}</span></div>
-                <div class="inv-p-meta-item"><label style="color:${mutedColor}">Status</label><span style="color:${headingColor}">${(inv.status || 'draft').toUpperCase()}</span></div>
-            </div>
-            <table class="inv-p-table">
-                <thead><tr>
-                    <th style="color:${mutedColor}">Description</th>
-                    <th class="th-qty" style="color:${mutedColor}">Qty</th>
-                    <th class="th-rate" style="color:${mutedColor}">Rate</th>
-                    <th style="text-align:right;color:${mutedColor}">Amount</th>
-                </tr></thead>
-                <tbody>${itemsHtml || '<tr><td colspan="4" style="text-align:center;color:#ccc;padding:20px">Add line items to see them here</td></tr>'}</tbody>
-            </table>
-            <div class="inv-p-totals">${totalsHtml}</div>
-            ${paymentHtml}
-            ${notesHtml}
-            <div class="inv-p-footer">
-                <a style="color:${mutedColor};opacity:0.7">${footerText}</a>
+                <div class="inv-p-meta">${metaItems.join('')}</div>
+                <table class="inv-p-table">
+                    <thead><tr>${theadHtml}</tr></thead>
+                    <tbody>${itemsHtml || `<tr><td colspan="${numCols}" style="text-align:center;color:#ccc;padding:20px">Add line items to see them here</td></tr>`}</tbody>
+                </table>
+                <div class="inv-p-totals">${totalsHtml}</div>
+                ${paymentHtml}
+                ${notesHtml}
+                ${showFooter ? `<div class="inv-p-footer"><a style="color:${mutedColor};opacity:0.7">${footerText}</a></div>` : ''}
+                ${barBottom}
             </div>
         `;
     }
 
-    async function saveInvoice() {
+    function formatDateCustom(dateStr, format) {
+        if (!dateStr) return '';
+        const d = new Date(dateStr + 'T00:00:00');
+        if (isNaN(d)) return '';
+        const yyyy = d.getFullYear();
+        const mm = String(d.getMonth() + 1).padStart(2, '0');
+        const dd = String(d.getDate()).padStart(2, '0');
+        switch (format) {
+            case 'us': return `${mm}/${dd}/${yyyy}`;
+            case 'eu': return `${dd}/${mm}/${yyyy}`;
+            case 'iso': return `${yyyy}-${mm}-${dd}`;
+            case 'long': return d.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+            case 'short':
+            default: return d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+        }
+    }
+
+    async function saveInvoice(silent = false) {
         const inv = getInvoiceFromForm();
         await InvoyDB.saveInvoice(inv);
 
-        // Update next invoice number if this is a new invoice
+        // Update next number if this is a new document
         if (!editingInvoiceId) {
-            const prefix = settings.prefix || 'INV';
-            const currentNum = parseInt(inv.number.replace(prefix + '-', '')) || 0;
-            await InvoyDB.setSetting('nextNum', currentNum + 1);
-            settings.nextNum = currentNum + 1;
+            const isEstimate = inv.docType === 'estimate';
+            const prefix = isEstimate ? (settings.estPrefix || 'EST') : (settings.prefix || 'INV');
+            const numPart = inv.number.replace(prefix + '-', '').replace(/[^\d]/g, '');
+            const currentNum = parseInt(numPart) || 0;
+            const key = isEstimate ? 'estNextNum' : 'nextNum';
+            await InvoyDB.setSetting(key, currentNum + 1);
+            settings[key] = currentNum + 1;
         }
 
         editingInvoiceId = inv.id;
@@ -579,7 +793,213 @@ const App = (() => {
             }
         }
 
-        showToast('Invoice saved', 'success');
+        if (!silent) {
+            const label = inv.docType === 'estimate' ? 'Estimate' : 'Invoice';
+            showToast(`${label} saved`, 'success');
+        }
+    }
+
+    // ==================== AUTO-SAVE ====================
+    let autosaveTimer = null;
+    let autosavePending = false;
+
+    function triggerAutoSave() {
+        if (!$('#view-editor') || $('#view-editor').style.display === 'none') return;
+        const inv = getInvoiceFromForm();
+        // Only auto-save if there's meaningful content
+        if (!inv.toName && !inv.items?.some(i => i.description || i.rate)) return;
+
+        autosavePending = true;
+        setAutosaveStatus('saving');
+        clearTimeout(autosaveTimer);
+        autosaveTimer = setTimeout(async () => {
+            await saveInvoice(true);
+            autosavePending = false;
+            setAutosaveStatus('saved');
+        }, 1200);
+    }
+
+    function setAutosaveStatus(status) {
+        const el = $('#autosave-indicator');
+        if (!el) return;
+        el.className = 'autosave-indicator ' + status;
+        if (status === 'saving') {
+            el.innerHTML = '<span class="dot"></span> Saving…';
+        } else if (status === 'saved') {
+            el.innerHTML = '<span class="dot"></span> Saved';
+        } else {
+            el.innerHTML = '';
+        }
+    }
+
+    // ==================== DUPLICATE / DELETE / CONVERT ====================
+    async function duplicateInvoice(id) {
+        const src = id ? await InvoyDB.getInvoice(id) : getInvoiceFromForm();
+        if (!src) return;
+        const isEstimate = (src.docType || 'invoice') === 'estimate';
+        const prefix = isEstimate ? (settings.estPrefix || 'EST') : (settings.prefix || 'INV');
+        const nextNum = isEstimate ? (parseInt(settings.estNextNum) || 1) : (parseInt(settings.nextNum) || 1);
+        const copy = {
+            ...src,
+            id: uuid(),
+            number: `${prefix}-${String(nextNum).padStart(3, '0')}`,
+            status: 'draft',
+            date: todayStr(),
+            dueDate: addDays(todayStr(), parseInt(settings.dueDays) || 30),
+            amountPaid: 0,
+            createdAt: undefined,
+            updatedAt: undefined
+        };
+        await InvoyDB.saveInvoice(copy);
+        await InvoyDB.setSetting(isEstimate ? 'estNextNum' : 'nextNum', nextNum + 1);
+        settings[isEstimate ? 'estNextNum' : 'nextNum'] = nextNum + 1;
+        showToast('Duplicated', 'success');
+        location.hash = `#edit/${copy.id}`;
+    }
+
+    // Generic confirmation
+    let _confirmAction = null;
+    function confirmDialog({ title, text, action, confirmLabel = 'Delete' }) {
+        $('#confirm-title').textContent = title || 'Are you sure?';
+        $('#confirm-text').textContent = text || 'This action cannot be undone.';
+        $('#btn-confirm-action').textContent = confirmLabel;
+        _confirmAction = action;
+        openModal('confirm-overlay');
+    }
+
+    async function deleteInvoice(id) {
+        confirmDialog({
+            title: 'Delete this document?',
+            text: 'This will permanently remove the invoice or estimate from your records.',
+            confirmLabel: 'Delete',
+            action: async () => {
+                await InvoyDB.deleteInvoice(id);
+                showToast('Deleted', 'success');
+                if (editingInvoiceId === id) {
+                    editingInvoiceId = null;
+                    location.hash = '#dashboard';
+                } else {
+                    loadDashboard();
+                }
+            }
+        });
+    }
+
+    async function convertEstimateToInvoice() {
+        if (!editingInvoiceId) return;
+        const src = await InvoyDB.getInvoice(editingInvoiceId);
+        if (!src || src.docType !== 'estimate') return;
+
+        const prefix = settings.prefix || 'INV';
+        const nextNum = parseInt(settings.nextNum) || 1;
+        const newInvoice = {
+            ...src,
+            id: uuid(),
+            docType: 'invoice',
+            number: `${prefix}-${String(nextNum).padStart(3, '0')}`,
+            status: 'draft',
+            date: todayStr(),
+            dueDate: addDays(todayStr(), parseInt(settings.dueDays) || 30),
+            createdAt: undefined,
+            updatedAt: undefined
+        };
+        await InvoyDB.saveInvoice(newInvoice);
+        await InvoyDB.setSetting('nextNum', nextNum + 1);
+        settings.nextNum = nextNum + 1;
+
+        // Mark estimate as accepted
+        src.status = 'accepted';
+        await InvoyDB.saveInvoice(src);
+
+        showToast('Converted to invoice', 'success');
+        location.hash = `#edit/${newInvoice.id}`;
+    }
+
+    // ==================== PRINT ====================
+    function printInvoice() {
+        const preview = $('#invoice-preview');
+        if (!preview) return;
+
+        const printWindow = window.open('', '_blank', 'width=900,height=1100');
+        const styles = `
+            body { font-family: Inter, sans-serif; background: #fff; color: #1a1a2e; margin: 0; padding: 30px; }
+            ${Array.from(document.styleSheets)
+                .map(sheet => {
+                    try {
+                        return Array.from(sheet.cssRules).map(r => r.cssText).join('\n');
+                    } catch { return ''; }
+                })
+                .join('\n')}
+            @media print { body { padding: 0; } .invoice-preview { padding: 20px; } }
+        `;
+        printWindow.document.write(`
+            <!DOCTYPE html><html><head><title>Print</title><style>${styles}</style></head>
+            <body><div class="invoice-preview">${preview.innerHTML}</div></body></html>
+        `);
+        printWindow.document.close();
+        setTimeout(() => { printWindow.print(); }, 400);
+    }
+
+    // ==================== CSV EXPORT ====================
+    function csvEscape(val) {
+        if (val == null) return '';
+        const s = String(val);
+        if (/[",\n\r]/.test(s)) return '"' + s.replace(/"/g, '""') + '"';
+        return s;
+    }
+
+    async function exportCSV() {
+        const all = await InvoyDB.getAllInvoices();
+        if (all.length === 0) { showToast('No documents to export', 'error'); return; }
+
+        const headers = [
+            'Type', 'Number', 'Status', 'Date', 'Due Date', 'Client Name', 'Client Email',
+            'Currency', 'Subtotal', 'Discount', 'Tax Rate', 'Tax Amount', 'Total',
+            'Amount Paid', 'Balance Due', 'Notes'
+        ];
+        const rows = [headers];
+
+        all.forEach(inv => {
+            const items = inv.items || [];
+            const subtotal = items.reduce((s, i) => s + ((parseFloat(i.quantity) || 0) * (parseFloat(i.rate) || 0)), 0);
+            let discount = 0;
+            if (inv.discountType === 'percentage') discount = subtotal * ((parseFloat(inv.discount) || 0) / 100);
+            else discount = parseFloat(inv.discount) || 0;
+            const afterDiscount = subtotal - discount;
+            const taxAmount = afterDiscount * ((parseFloat(inv.taxRate) || 0) / 100);
+            const total = afterDiscount + taxAmount;
+            const paid = parseFloat(inv.amountPaid) || 0;
+            const balance = total - paid;
+
+            rows.push([
+                inv.docType || 'invoice',
+                inv.number || '',
+                inv.status || '',
+                inv.date || '',
+                inv.dueDate || '',
+                inv.toName || '',
+                inv.toEmail || '',
+                inv.currency || 'USD',
+                subtotal.toFixed(2),
+                discount.toFixed(2),
+                inv.taxRate || '0',
+                taxAmount.toFixed(2),
+                total.toFixed(2),
+                paid.toFixed(2),
+                balance.toFixed(2),
+                inv.notes || ''
+            ]);
+        });
+
+        const csv = rows.map(r => r.map(csvEscape).join(',')).join('\n');
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `invoy-export-${todayStr()}.csv`;
+        a.click();
+        URL.revokeObjectURL(url);
+        showToast(`Exported ${all.length} documents`, 'success');
     }
 
     // ==================== CLIENTS ====================
@@ -712,6 +1132,23 @@ const App = (() => {
             $('#set-footer-text').value = settings.footerText || '';
             $('#set-payment-instructions').value = settings.paymentInstructions || '';
 
+            // Document Layout
+            if ($('#set-paper-size')) {
+                $('#set-paper-size').value = settings.paperSize || 'A4';
+                $('#set-date-format').value = settings.dateFormat || 'short';
+                $('#set-font-family').value = settings.fontFamily || 'Roboto';
+                $('#set-header-align').value = settings.headerAlign || 'split';
+                $('#set-doc-title').value = settings.docTitle || 'INVOICE';
+                $('#set-est-title').value = settings.estTitle || 'ESTIMATE';
+                $('#set-accent-bar').value = settings.accentBar || 'none';
+                $('#set-show-qty').checked = settings.showQty !== false;
+                $('#set-show-rate').checked = settings.showRate !== false;
+                $('#set-show-status').checked = settings.showStatus !== false;
+                $('#set-show-currency').checked = settings.showCurrency !== false;
+                $('#set-show-due').checked = settings.showDue !== false;
+                $('#set-show-footer').checked = settings.showFooter !== false;
+            }
+
             // Logo preview
             renderSettingsLogo(settings.logo);
 
@@ -765,7 +1202,24 @@ const App = (() => {
             logoSize: $('#set-logo-size').value,
             footerText: $('#set-footer-text').value,
             paymentInstructions: $('#set-payment-instructions').value,
-            logo: settings.logo || null
+            logo: settings.logo || null,
+            // Document Layout
+            paperSize: $('#set-paper-size').value,
+            dateFormat: $('#set-date-format').value,
+            fontFamily: $('#set-font-family').value,
+            headerAlign: $('#set-header-align').value,
+            docTitle: $('#set-doc-title').value || 'INVOICE',
+            estTitle: $('#set-est-title').value || 'ESTIMATE',
+            accentBar: $('#set-accent-bar').value,
+            showQty: $('#set-show-qty').checked,
+            showRate: $('#set-show-rate').checked,
+            showStatus: $('#set-show-status').checked,
+            showCurrency: $('#set-show-currency').checked,
+            showDue: $('#set-show-due').checked,
+            showFooter: $('#set-show-footer').checked,
+            // Preserve estimate numbering
+            estPrefix: settings.estPrefix || 'EST',
+            estNextNum: settings.estNextNum || 1
         };
 
         for (const [key, value] of Object.entries(settingsMap)) {
@@ -819,8 +1273,29 @@ const App = (() => {
             });
         });
 
-        // Dashboard filter
-        $('#filter-status').addEventListener('change', loadDashboard);
+        // Dashboard filters + search + sort
+        $('#filter-status').addEventListener('change', renderDocList);
+        $('#filter-type').addEventListener('change', renderDocList);
+        $('#sort-by').addEventListener('change', renderDocList);
+
+        let searchDebounce;
+        $('#search-input').addEventListener('input', () => {
+            clearTimeout(searchDebounce);
+            searchDebounce = setTimeout(renderDocList, 150);
+        });
+
+        // Dashboard row actions (delegated)
+        $('#invoice-list').addEventListener('click', (e) => {
+            const btn = e.target.closest('.row-action-btn');
+            if (!btn) return;
+            e.stopPropagation();
+            const id = btn.dataset.id;
+            if (btn.dataset.action === 'duplicate') duplicateInvoice(id);
+            else if (btn.dataset.action === 'delete') deleteInvoice(id);
+        });
+
+        // Dashboard CSV export
+        $('#btn-export-csv').addEventListener('click', exportCSV);
 
         // Editor: Add line item
         $('#btn-add-item').addEventListener('click', () => {
@@ -846,15 +1321,34 @@ const App = (() => {
         // Editor: Live update on input changes
         const editorForm = $('#editor-form');
         editorForm.addEventListener('input', (e) => {
-            if (e.target.closest('#line-items')) return; // Handled individually
+            if (e.target.closest('#line-items')) {
+                triggerAutoSave();
+                return; // totals/preview handled individually
+            }
             updateTotals();
             updatePreview();
+            triggerAutoSave();
         });
 
         editorForm.addEventListener('change', (e) => {
             updateTotals();
             updatePreview();
+            triggerAutoSave();
         });
+
+        // Editor: Duplicate, Print, Convert
+        $('#btn-duplicate').addEventListener('click', async () => {
+            if (editingInvoiceId) {
+                await saveInvoice(true);
+                duplicateInvoice(editingInvoiceId);
+            } else {
+                await saveInvoice(true);
+                duplicateInvoice(editingInvoiceId);
+            }
+        });
+
+        $('#btn-print').addEventListener('click', printInvoice);
+        $('#btn-convert').addEventListener('click', convertEstimateToInvoice);
 
         // Editor: Logo upload
         $('#logo-upload').addEventListener('click', () => {
@@ -977,12 +1471,65 @@ const App = (() => {
             if (file) restoreData(file);
         });
 
-        // Keyboard shortcut: Cmd/Ctrl + S to save
+        // Confirm modal action
+        $('#btn-confirm-action').addEventListener('click', async () => {
+            if (_confirmAction) {
+                const fn = _confirmAction;
+                _confirmAction = null;
+                closeModal('confirm-overlay');
+                await fn();
+            }
+        });
+
+        // Keyboard shortcuts
         document.addEventListener('keydown', (e) => {
+            // Don't trigger shortcuts when typing in inputs
+            const inInput = e.target.matches('input, textarea, select');
+
+            // Cmd/Ctrl + S = save
             if ((e.metaKey || e.ctrlKey) && e.key === 's') {
                 e.preventDefault();
                 const editorVisible = $('#view-editor').style.display !== 'none';
                 if (editorVisible) saveInvoice();
+                return;
+            }
+
+            // Escape = close any open modal
+            if (e.key === 'Escape') {
+                $$('.modal-overlay.active').forEach(m => m.classList.remove('active'));
+                return;
+            }
+
+            if (inInput) return;
+
+            // N = new invoice (from dashboard)
+            if (e.key === 'n' || e.key === 'N') {
+                e.preventDefault();
+                location.hash = '#new';
+                return;
+            }
+
+            // E = new estimate
+            if (e.key === 'e' || e.key === 'E') {
+                e.preventDefault();
+                location.hash = '#new-estimate';
+                return;
+            }
+
+            // / = focus search (on dashboard)
+            if (e.key === '/') {
+                const dashVisible = $('#view-dashboard').style.display !== 'none';
+                if (dashVisible && $('#search-input')) {
+                    e.preventDefault();
+                    $('#search-input').focus();
+                }
+                return;
+            }
+
+            // D = dashboard
+            if (e.key === 'd' || e.key === 'D') {
+                e.preventDefault();
+                location.hash = '#dashboard';
             }
         });
     }
