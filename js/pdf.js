@@ -69,10 +69,17 @@ const InvoyPDF = (() => {
         const showDue = invoice.showDue !== false;
         const showFooter = invoice.showFooter !== false;
 
-        const isEstimate = invoice.docType === 'estimate';
-        const titleText = isEstimate
-            ? (invoice.estTitle || 'ESTIMATE')
-            : (invoice.docTitle || 'INVOICE');
+        const docType = invoice.docType || 'invoice';
+        const isNonInvoice = ['estimate', 'quote', 'proforma'].includes(docType);
+        const DOC_TITLES = {
+            invoice: invoice.docTitle || 'INVOICE',
+            quote: 'QUOTE',
+            estimate: invoice.estTitle || 'ESTIMATE',
+            receipt: 'RECEIPT',
+            proforma: 'PROFORMA INVOICE',
+            'credit-note': 'CREDIT NOTE'
+        };
+        const titleText = DOC_TITLES[docType] || invoice.docTitle || 'INVOICE';
 
         const fmtD = (s) => formatDate(s, dateFormat);
 
@@ -149,7 +156,7 @@ const InvoyPDF = (() => {
             { text: formatMoney(total, curr), alignment: 'right', bold: true, fontSize: 13, color: headingColor }
         ]);
 
-        if (!isEstimate) {
+        if (!isNonInvoice) {
             if (amountPaid > 0) {
                 totalsBody.push([
                     { text: 'Amount Paid', alignment: 'right', color: mutedColor },
@@ -216,7 +223,7 @@ const InvoyPDF = (() => {
                 { stack: fromStack },
                 {
                     stack: [
-                        { text: isEstimate ? 'PREPARED FOR' : 'BILL TO', style: 'sectionLabel' },
+                        { text: isNonInvoice ? 'PREPARED FOR' : 'BILL TO', style: 'sectionLabel' },
                         { text: invoice.toName || '', style: 'partyName' },
                         { text: invoice.toEmail || '', style: 'partyDetail' },
                         { text: invoice.toAddress || '', style: 'partyDetail' }
@@ -230,10 +237,10 @@ const InvoyPDF = (() => {
         const metaCells = [
             { stack: [{ text: 'Issue Date', style: 'metaLabel' }, { text: fmtD(invoice.date), style: 'metaValue' }] }
         ];
-        if (!isEstimate && showDue) {
+        if (!isNonInvoice && showDue) {
             metaCells.push({ stack: [{ text: 'Due Date', style: 'metaLabel' }, { text: fmtD(invoice.dueDate), style: 'metaValue' }] });
         }
-        if (isEstimate && invoice.dueDate) {
+        if (isNonInvoice && invoice.dueDate) {
             metaCells.push({ stack: [{ text: 'Valid Until', style: 'metaLabel' }, { text: fmtD(invoice.dueDate), style: 'metaValue' }] });
         }
         if (showStatus) {
@@ -303,7 +310,7 @@ const InvoyPDF = (() => {
         });
 
         // Payment Instructions (only for invoices)
-        if (invoice.paymentInstructions && !isEstimate) {
+        if (invoice.paymentInstructions && !isNonInvoice) {
             content.push({ text: 'Payment Instructions', style: 'sectionLabel', margin: [0, 10, 0, 4] });
             content.push({ text: invoice.paymentInstructions, style: 'partyDetail', margin: [0, 0, 0, 10] });
         }

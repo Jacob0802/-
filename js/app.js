@@ -275,7 +275,7 @@ const App = (() => {
         editingInvoiceId = null;
         currentDocType = docType;
         $('#editor-title').textContent = docType === 'estimate' ? 'New Estimate' : 'New Invoice';
-        $('#btn-convert').style.display = docType === 'estimate' ? 'inline-flex' : 'none';
+        $('#btn-convert').style.display = ['estimate', 'quote', 'proforma'].includes(docType) ? 'inline-flex' : 'none';
         await loadSettings();
 
         const prefix = docType === 'estimate'
@@ -288,6 +288,7 @@ const App = (() => {
         const dueDays = parseInt(settings.dueDays) || 30;
 
         // Populate form
+        $('#inv-doc-type').value = docType;
         $('#inv-number').value = number;
         $('#inv-status').value = 'draft';
         $('#inv-date').value = todayStr();
@@ -338,8 +339,9 @@ const App = (() => {
         currentDocType = inv.docType || 'invoice';
         const docLabel = currentDocType === 'estimate' ? 'Estimate' : 'Invoice';
         $('#editor-title').textContent = `Edit ${docLabel} ${inv.number}`;
-        $('#btn-convert').style.display = currentDocType === 'estimate' ? 'inline-flex' : 'none';
+        $('#btn-convert').style.display = (currentDocType === 'estimate' || currentDocType === 'quote') ? 'inline-flex' : 'none';
 
+        $('#inv-doc-type').value = currentDocType;
         $('#inv-number').value = inv.number || '';
         $('#inv-status').value = inv.status || 'draft';
         $('#inv-date').value = formatDateForInput(inv.date) || '';
@@ -473,7 +475,7 @@ const App = (() => {
     function getInvoiceFromForm() {
         return {
             id: editingInvoiceId || uuid(),
-            docType: currentDocType,
+            docType: $('#inv-doc-type').value || 'invoice',
             number: $('#inv-number').value,
             status: $('#inv-status').value,
             date: $('#inv-date').value,
@@ -579,11 +581,18 @@ const App = (() => {
         };
         const logoDims = logoSizeMap[logoSize] || logoSizeMap.medium;
 
-        // Title (estimate vs invoice)
-        const isEstimate = inv.docType === 'estimate';
-        const titleText = isEstimate
-            ? (inv.estTitle || 'ESTIMATE')
-            : (inv.docTitle || 'INVOICE');
+        // Title based on document type
+        const docType = inv.docType || 'invoice';
+        const isNonInvoice = ['estimate', 'quote', 'proforma'].includes(docType);
+        const DOC_TITLES = {
+            invoice: inv.docTitle || 'INVOICE',
+            quote: 'QUOTE',
+            estimate: inv.estTitle || 'ESTIMATE',
+            receipt: 'RECEIPT',
+            proforma: 'PROFORMA INVOICE',
+            'credit-note': 'CREDIT NOTE'
+        };
+        const titleText = DOC_TITLES[docType] || inv.docTitle || 'INVOICE';
 
         // Format date based on settings
         const fmtDate = (dateStr) => formatDateCustom(dateStr, inv.dateFormat || 'short');
@@ -619,10 +628,10 @@ const App = (() => {
             totalsHtml += `<div class="inv-p-totals-row" style="color:${bodyColor}"><span>Tax (${inv.taxRate}%)</span><span>${InvoyPDF.formatMoney(taxAmount, curr)}</span></div>`;
         }
         totalsHtml += `<div class="inv-p-totals-row inv-p-totals-total" style="border-top-color:${brandColor};color:${headingColor}"><span>Total</span><span>${InvoyPDF.formatMoney(total, curr)}</span></div>`;
-        if (paid > 0 && !isEstimate) {
+        if (paid > 0 && !isNonInvoice) {
             totalsHtml += `<div class="inv-p-totals-row" style="color:${bodyColor}"><span>Amount Paid</span><span>${InvoyPDF.formatMoney(paid, curr)}</span></div>`;
         }
-        if (!isEstimate) {
+        if (!isNonInvoice) {
             totalsHtml += `<div class="inv-p-totals-row inv-p-totals-due" style="color:${brandColor}"><span>Balance Due</span><span>${InvoyPDF.formatMoney(balance, curr)}</span></div>`;
         }
 
@@ -642,7 +651,7 @@ const App = (() => {
 
         // Payment instructions (only for invoices)
         let paymentHtml = '';
-        if (inv.paymentInstructions && !isEstimate) {
+        if (inv.paymentInstructions && !isNonInvoice) {
             paymentHtml = `<div class="inv-p-notes"><h4 style="color:${mutedColor}">Payment Instructions</h4><p style="color:${bodyColor}">${escapeHtml(inv.paymentInstructions)}</p></div>`;
         }
 
@@ -699,8 +708,8 @@ const App = (() => {
         const metaItems = [
             `<div class="inv-p-meta-item"><label style="color:${mutedColor}">Issue Date</label><span style="color:${headingColor}">${fmtDate(inv.date)}</span></div>`
         ];
-        if (showDue && !isEstimate) metaItems.push(`<div class="inv-p-meta-item"><label style="color:${mutedColor}">Due Date</label><span style="color:${headingColor}">${fmtDate(inv.dueDate)}</span></div>`);
-        if (isEstimate && inv.dueDate) metaItems.push(`<div class="inv-p-meta-item"><label style="color:${mutedColor}">Valid Until</label><span style="color:${headingColor}">${fmtDate(inv.dueDate)}</span></div>`);
+        if (showDue && !isNonInvoice) metaItems.push(`<div class="inv-p-meta-item"><label style="color:${mutedColor}">Due Date</label><span style="color:${headingColor}">${fmtDate(inv.dueDate)}</span></div>`);
+        if (isNonInvoice && inv.dueDate) metaItems.push(`<div class="inv-p-meta-item"><label style="color:${mutedColor}">Valid Until</label><span style="color:${headingColor}">${fmtDate(inv.dueDate)}</span></div>`);
         if (showStatus) metaItems.push(`<div class="inv-p-meta-item"><label style="color:${mutedColor}">Status</label><span style="color:${headingColor}">${(inv.status || 'draft').toUpperCase()}</span></div>`);
         if (showCurrency) metaItems.push(`<div class="inv-p-meta-item"><label style="color:${mutedColor}">Currency</label><span style="color:${headingColor}">${curr}</span></div>`);
 
@@ -724,7 +733,7 @@ const App = (() => {
                         ${fromExtra}
                     </div>
                     <div class="inv-p-party" style="text-align:right">
-                        <h4 style="color:${mutedColor}">${isEstimate ? 'Prepared For' : 'Bill To'}</h4>
+                        <h4 style="color:${mutedColor}">${isNonInvoice ? 'Prepared For' : 'Bill To'}</h4>
                         <p class="party-name" style="color:${headingColor}">${escapeHtml(inv.toName)}</p>
                         <p style="color:${bodyColor}">${escapeHtml(inv.toEmail)}</p>
                         <p style="color:${bodyColor}">${escapeHtml(inv.toAddress)}</p>
@@ -1349,6 +1358,16 @@ const App = (() => {
 
         $('#btn-print').addEventListener('click', printInvoice);
         $('#btn-convert').addEventListener('click', convertEstimateToInvoice);
+
+        // Editor: Doc type change
+        $('#inv-doc-type').addEventListener('change', (e) => {
+            const type = e.target.value;
+            currentDocType = type;
+            const nonInvoice = ['estimate', 'quote', 'proforma'].includes(type);
+            $('#btn-convert').style.display = nonInvoice ? 'inline-flex' : 'none';
+            updatePreview();
+            triggerAutoSave();
+        });
 
         // Editor: Logo upload
         $('#logo-upload').addEventListener('click', () => {

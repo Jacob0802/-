@@ -197,9 +197,20 @@
                 <div class="editor-form" id="editor-form">
                     <!-- Invoice Meta -->
                     <div class="card">
+                        <div class="form-group">
+                            <label class="form-label">Document Type</label>
+                            <select class="form-select" id="inv-doc-type">
+                                <option value="invoice">Invoice</option>
+                                <option value="quote">Quote</option>
+                                <option value="estimate">Estimate</option>
+                                <option value="receipt">Receipt</option>
+                                <option value="proforma">Proforma Invoice</option>
+                                <option value="credit-note">Credit Note</option>
+                            </select>
+                        </div>
                         <div class="form-row">
                             <div class="form-group">
-                                <label class="form-label">Invoice Number</label>
+                                <label class="form-label">Number</label>
                                 <input type="text" class="form-input" id="inv-number" placeholder="INV-001">
                             </div>
                             <div class="form-group">
@@ -209,6 +220,8 @@
                                     <option value="sent">Sent</option>
                                     <option value="paid">Paid</option>
                                     <option value="overdue">Overdue</option>
+                                    <option value="accepted">Accepted</option>
+                                    <option value="declined">Declined</option>
                                 </select>
                             </div>
                         </div>
