@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Generating Quote...</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.10/pdfmake.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.10/vfs_fonts.js"></script>
+    <style>
+        body { font-family: sans-serif; background: #0f0f14; color: #e8e8ef; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; }
+        .msg { text-align: center; }
+        .msg h2 { margin-bottom: 12px; }
+        .msg p { color: #999; }
+        .btn { display: inline-block; margin-top: 20px; padding: 12px 24px; background: #6C5CE7; color: #fff; border: none; border-radius: 8px; font-size: 16px; cursor: pointer; }
+        .btn:hover { background: #7c6ef0; }
+    </style>
+</head>
+<body>
+    <div class="msg">
+        <h2>Decking Sunshine Coast — Quote</h2>
+        <p id="status">Generating PDF...</p>
+        <button class="btn" id="btn" style="display:none" onclick="generate()">Download Again</button>
+    </div>
+    <script>
+        function generate() {
+            var brandColor = '#1a1a2e';
+            var items = [
+                { num: 1, desc: 'Site inspection & pre-work assessment', detail: 'Structural assessment of deck framing, post bases, and bearer connections', amount: 0, note: '(included)' },
+                { num: 2, desc: 'Remove & dispose of 3\u00d7 damaged structural posts', detail: 'Safe removal of existing 90\u00d790mm H4 treated pine posts; disposal off-site', amount: 480 },
+                { num: 3, desc: 'Supply & install 3\u00d7 new structural posts', detail: '90\u00d790mm H4 treated pine, 1.8m lengths; posts to match existing height', amount: 720 },
+                { num: 4, desc: 'Post base hardware & concrete footings', detail: '3\u00d7 galvanised adjustable post bases (Pryda or equiv.); re-pour or patch existing concrete pads as required', amount: 640 },
+                { num: 5, desc: 'Bearer & joist re-connection', detail: 'Re-secure bearers to new posts; replace damaged joist hangers and nails/bolts as required', amount: 580 },
+                { num: 6, desc: 'Deck board re-securing', detail: 'Lift, re-lay, and re-fix affected deck boards over repaired framing', amount: 420 },
+                { num: 7, desc: 'Structural timber repairs \u2014 incidentals', detail: 'Replace any secondary framing members found to be damaged during works (allowance)', amount: 350 },
+                { num: 8, desc: 'Labour \u2014 carpentry', detail: '2\u00d7 carpenters, estimated 3 days', amount: 2880 },
+                { num: 9, desc: 'Plant & equipment', detail: 'Post-hole digger hire, generator, tools', amount: 280 },
+                { num: 10, desc: 'Site cleanup & waste removal', detail: 'All debris removed; site left broom-clean', amount: 180 }
+            ];
+
+            var subtotal = 0;
+            for (var i = 0; i < items.length; i++) subtotal += items[i].amount;
+            var tax = subtotal * 0.10;
+            var total = subtotal + tax;
+
+            function money(n) {
+                return 'A$' + n.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+            }
+
+            // Table body
+            var tableBody = [
+                [
+                    { text: '#', style: 'th', alignment: 'center' },
+                    { text: 'DESCRIPTION', style: 'th' },
+                    { text: 'DETAILS', style: 'th' },
+                    { text: 'AMOUNT', style: 'th', alignment: 'right' }
+                ]
+            ];
+
+            for (var j = 0; j < items.length; j++) {
+                var it = items[j];
+                var amtText = it.amount === 0 ? '$0\n(included)' : money(it.amount);
+                tableBody.push([
+                    { text: String(it.num), alignment: 'center', color: '#555', fontSize: 9 },
+                    { text: it.desc, bold: true, fontSize: 10, color: '#1a1a2e' },
+                    { text: it.detail, fontSize: 9, color: '#555' },
+                    { text: amtText, alignment: 'right', fontSize: 10, color: '#1a1a2e', bold: true }
+                ]);
+            }
+
+            // Totals
+            var totalsBody = [
+                [{ text: 'Subtotal', alignment: 'right', color: '#888' }, { text: money(subtotal), alignment: 'right', color: '#333' }],
+                [{ text: 'GST (10%)', alignment: 'right', color: '#888' }, { text: money(tax), alignment: 'right', color: '#333' }],
+                [{ text: 'Total (inc. GST)', alignment: 'right', bold: true, fontSize: 14, color: '#1a1a2e' }, { text: money(total), alignment: 'right', bold: true, fontSize: 14, color: '#1a1a2e' }],
+                [{ text: 'Balance Due', alignment: 'right', bold: true, fontSize: 12, color: '#6C5CE7' }, { text: money(total), alignment: 'right', bold: true, fontSize: 12, color: '#6C5CE7' }]
+            ];
+
+            var docDef = {
+                content: [
+                    // Header
+                    {
+                        columns: [
+                            { text: 'Decking Sunshine Coast', fontSize: 20, bold: true, color: '#1a1a2e' },
+                            { stack: [
+                                { text: 'QUOTE', fontSize: 28, bold: true, color: '#6C5CE7', alignment: 'right' },
+                                { text: 'Quote-001', fontSize: 11, color: '#888', alignment: 'right' }
+                            ]}
+                        ],
+                        columnGap: 20,
+                        margin: [0, 0, 0, 24]
+                    },
+
+                    // From / Prepared For
+                    {
+                        columns: [
+                            { stack: [
+                                { text: 'FROM', fontSize: 9, bold: true, color: '#999' },
+                                { text: 'Decking Sunshine Coast', fontSize: 12, bold: true, color: '#1a1a2e', margin: [0, 4, 0, 2] },
+                                { text: 'decksunshine@gmail.com.au', fontSize: 10, color: '#555' },
+                                { text: '0753158386', fontSize: 10, color: '#555' },
+                                { text: 'https://sunshinecoastdeckings.com', fontSize: 10, color: '#6C5CE7' }
+                            ]},
+                            { stack: [
+                                { text: 'PREPARED FOR', fontSize: 9, bold: true, color: '#999' },
+                                { text: ' ', fontSize: 10 }
+                            ]}
+                        ],
+                        margin: [0, 0, 0, 20]
+                    },
+
+                    // Meta row
+                    {
+                        table: {
+                            widths: ['*', '*', '*', '*'],
+                            body: [[
+                                { stack: [{ text: 'ISSUE DATE', fontSize: 8, bold: true, color: '#999' }, { text: 'Apr 11, 2026', fontSize: 11, bold: true, color: '#333', margin: [0, 2, 0, 0] }] },
+                                { stack: [{ text: 'VALID UNTIL', fontSize: 8, bold: true, color: '#999' }, { text: 'May 10, 2026', fontSize: 11, bold: true, color: '#333', margin: [0, 2, 0, 0] }] },
+                                { stack: [{ text: 'STATUS', fontSize: 8, bold: true, color: '#999' }, { text: 'DRAFT', fontSize: 11, bold: true, color: '#333', margin: [0, 2, 0, 0] }] },
+                                { stack: [{ text: 'CURRENCY', fontSize: 8, bold: true, color: '#999' }, { text: 'AUD', fontSize: 11, bold: true, color: '#333', margin: [0, 2, 0, 0] }] }
+                            ]]
+                        },
+                        layout: {
+                            fillColor: function() { return '#f5f5fa'; },
+                            hLineWidth: function() { return 0; },
+                            vLineWidth: function() { return 0; },
+                            paddingLeft: function() { return 10; },
+                            paddingRight: function() { return 10; },
+                            paddingTop: function() { return 8; },
+                            paddingBottom: function() { return 8; }
+                        },
+                        margin: [0, 0, 0, 20]
+                    },
+
+                    // Scope of Works heading
+                    { text: 'Scope of Works — Deck Post Replacement & Structural Repair', fontSize: 12, bold: true, color: '#1a1a2e', margin: [0, 0, 0, 12] },
+
+                    // Line Items Table
+                    {
+                        table: {
+                            headerRows: 1,
+                            widths: [20, '*', '*', 70],
+                            body: tableBody
+                        },
+                        layout: {
+                            hLineWidth: function(i, node) { return (i === 0 || i === 1 || i === node.table.body.length) ? 1 : 0.5; },
+                            vLineWidth: function() { return 0; },
+                            hLineColor: function(i) { return i <= 1 ? '#ddd' : '#f0f0f0'; },
+                            paddingTop: function() { return 8; },
+                            paddingBottom: function() { return 8; },
+                            paddingLeft: function(i) { return i === 0 ? 4 : 6; },
+                            paddingRight: function(i, node) { return i === node.table.widths.length - 1 ? 4 : 6; }
+                        },
+                        margin: [0, 0, 0, 20]
+                    },
+
+                    // Totals
+                    {
+                        columns: [
+                            { width: '*', text: '' },
+                            {
+                                width: 260,
+                                table: { widths: ['*', 'auto'], body: totalsBody },
+                                layout: {
+                                    hLineWidth: function(i) { return i === 2 ? 1 : 0; },
+                                    vLineWidth: function() { return 0; },
+                                    hLineColor: function() { return '#6C5CE7'; },
+                                    paddingTop: function() { return 5; },
+                                    paddingBottom: function() { return 5; }
+                                }
+                            }
+                        ],
+                        margin: [0, 0, 0, 24]
+                    },
+
+                    // Notes
+                    { text: 'Notes', fontSize: 9, bold: true, color: '#999', margin: [0, 0, 0, 4] },
+                    { text: 'This quote is valid for 30 days from issue date. All prices include materials and labour unless otherwise stated. Work is subject to site access and weather conditions.', fontSize: 10, color: '#555', margin: [0, 0, 0, 16] },
+
+                    // Terms
+                    { text: 'Terms & Conditions', fontSize: 9, bold: true, color: '#999', margin: [0, 0, 0, 4] },
+                    { text: '50% deposit required to confirm booking. Balance due on completion. QBCC licensed. Fully insured.', fontSize: 10, color: '#555' }
+                ],
+                footer: function(currentPage, pageCount) {
+                    return {
+                        columns: [
+                            { text: 'Page ' + currentPage + ' of ' + pageCount, alignment: 'left', fontSize: 8, color: '#bbb', margin: [40, 0, 0, 0] },
+                            { text: 'Decking Sunshine Coast \u2014 sunshinecoastdeckings.com', alignment: 'right', fontSize: 8, color: '#bbb', margin: [0, 0, 40, 0] }
+                        ]
+                    };
+                },
+                defaultStyle: { font: 'Roboto' },
+                pageSize: 'A4',
+                pageMargins: [40, 40, 40, 60],
+                styles: {
+                    th: { fontSize: 8, bold: true, color: '#999' }
+                }
+            };
+
+            try {
+                pdfMake.createPdf(docDef).download('Quote-001-Decking-Sunshine-Coast.pdf');
+                document.getElementById('status').textContent = 'PDF downloaded!';
+                document.getElementById('btn').style.display = 'inline-block';
+            } catch (err) {
+                document.getElementById('status').textContent = 'Error: ' + err.message;
+                document.getElementById('btn').style.display = 'inline-block';
+                console.error(err);
+            }
+        }
+
+        // Wait for pdfmake to load then generate
+        window.onload = function() {
+            setTimeout(generate, 500);
+        };
+    </script>
+</body>
+</html>
