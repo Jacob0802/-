@@ -176,8 +176,8 @@ const InvoyPDF = (() => {
         // Accent bar top
         if (accentBar === 'top' || accentBar === 'both') {
             content.push({
-                canvas: [{ type: 'rect', x: -40, y: -40, w: 595, h: 8, color: brandColor }],
-                margin: [0, 0, 0, 20]
+                canvas: [{ type: 'rect', x: 0, y: 0, w: 515, h: 6, color: brandColor }],
+                margin: [0, 0, 0, 16]
             });
         }
 
@@ -296,8 +296,8 @@ const InvoyPDF = (() => {
                     },
                     layout: {
                         hLineWidth: (i) => {
-                            const totalIdx = totalsBody.findIndex(r => r[0].fontSize === 13);
-                            return i === totalIdx ? 1 : 0;
+                            const totalIdx = totalsBody.findIndex(r => r && r[0] && r[0].fontSize === 13);
+                            return (totalIdx >= 0 && i === totalIdx) ? 1 : 0;
                         },
                         vLineWidth: () => 0,
                         hLineColor: () => brandColor,
@@ -330,30 +330,26 @@ const InvoyPDF = (() => {
         // Accent bar bottom
         if (accentBar === 'bottom' || accentBar === 'both') {
             content.push({
-                canvas: [{ type: 'rect', x: -40, y: 10, w: 595, h: 8, color: brandColor }],
-                margin: [0, 10, 0, 0]
+                canvas: [{ type: 'rect', x: 0, y: 0, w: 515, h: 6, color: brandColor }],
+                margin: [0, 16, 0, 0]
             });
         }
 
         const footerText = invoice.footerText || 'Created with Invoy \u2014 Free Invoice Generator';
 
+        // Lighter muted color for footer (pdfmake doesn't support opacity)
+        const footerColor = tintColor(mutedColor, 0.5);
+
         // pdfmake only ships with Roboto. Other fonts require VFS setup.
-        // Fall back to Roboto for unsupported fonts but keep the live preview accurate.
         const usableFont = 'Roboto';
 
-        return {
+        const docDef = {
             content,
-            footer: showFooter ? (currentPage, pageCount) => ({
-                columns: [
-                    { text: `Page ${currentPage} of ${pageCount}`, alignment: 'left', fontSize: 8, color: mutedColor, opacity: 0.7, margin: [40, 0, 0, 0] },
-                    { text: footerText, alignment: 'right', fontSize: 8, color: mutedColor, opacity: 0.7, margin: [0, 0, 40, 0] }
-                ]
-            }) : null,
             styles: {
                 invoiceTitle: { fontSize: 28, bold: true, color: brandColor },
                 invoiceNumber: { fontSize: 11, color: mutedColor, margin: [0, 2, 0, 0] },
                 brandName: { fontSize: 18, bold: true, color: headingColor },
-                sectionLabel: { fontSize: 9, bold: true, color: mutedColor, letterSpacing: 0.5 },
+                sectionLabel: { fontSize: 9, bold: true, color: mutedColor },
                 partyName: { fontSize: 12, bold: true, color: headingColor, margin: [0, 4, 0, 2] },
                 partyDetail: { fontSize: 10, color: bodyColor, lineHeight: 1.4 },
                 metaLabel: { fontSize: 8, color: mutedColor, bold: true },
@@ -365,8 +361,21 @@ const InvoyPDF = (() => {
                 font: usableFont
             },
             pageSize: paperSize,
-            pageMargins: [40, 40, 40, 40]
+            pageMargins: [40, 40, 40, 60]
         };
+
+        if (showFooter) {
+            docDef.footer = function(currentPage, pageCount) {
+                return {
+                    columns: [
+                        { text: 'Page ' + currentPage + ' of ' + pageCount, alignment: 'left', fontSize: 8, color: footerColor, margin: [40, 0, 0, 0] },
+                        { text: footerText, alignment: 'right', fontSize: 8, color: footerColor, margin: [0, 0, 40, 0] }
+                    ]
+                };
+            };
+        }
+
+        return docDef;
     }
 
     function download(invoice) {
