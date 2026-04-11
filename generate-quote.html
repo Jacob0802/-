@@ -1,29 +1,69 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Generating Quote...</title>
+    <title>Decking Sunshine Coast — Quote Generator</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.10/pdfmake.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.10/vfs_fonts.js"></script>
     <style>
         body { font-family: sans-serif; background: #0f0f14; color: #e8e8ef; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; }
-        .msg { text-align: center; }
-        .msg h2 { margin-bottom: 12px; }
-        .msg p { color: #999; }
-        .btn { display: inline-block; margin-top: 20px; padding: 12px 24px; background: #6C5CE7; color: #fff; border: none; border-radius: 8px; font-size: 16px; cursor: pointer; }
+        .msg { text-align: center; max-width: 480px; }
+        .msg h2 { margin-bottom: 8px; }
+        .msg p { color: #999; margin: 8px 0; }
+        .btn { display: inline-block; margin-top: 16px; padding: 14px 32px; background: #6C5CE7; color: #fff; border: none; border-radius: 8px; font-size: 16px; cursor: pointer; }
         .btn:hover { background: #7c6ef0; }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .upload-area { margin: 20px 0; padding: 24px; border: 2px dashed #333; border-radius: 10px; cursor: pointer; transition: border-color 0.2s; }
+        .upload-area:hover { border-color: #6C5CE7; }
+        .upload-area img { max-height: 80px; max-width: 200px; }
+        .upload-area input { display: none; }
+        .step { color: #6C5CE7; font-weight: bold; }
+        #logo-status { font-size: 14px; color: #999; }
     </style>
 </head>
 <body>
     <div class="msg">
-        <h2>Decking Sunshine Coast — Quote</h2>
-        <p id="status">Generating PDF...</p>
-        <button class="btn" id="btn" style="display:none" onclick="generate()">Download Again</button>
+        <h2>Decking Sunshine Coast</h2>
+        <p>Quote PDF Generator</p>
+
+        <div class="upload-area" id="upload-area" onclick="document.getElementById('logo-file').click()">
+            <input type="file" id="logo-file" accept="image/*">
+            <p id="logo-status"><span class="step">Step 1:</span> Click here to upload your logo</p>
+            <div id="logo-img"></div>
+        </div>
+
+        <button class="btn" id="btn-generate" onclick="generate()">
+            Generate & Download PDF
+        </button>
+        <p id="status"></p>
     </div>
+
     <script>
+        var logoData = null;
+
+        document.getElementById('logo-file').addEventListener('change', function(e) {
+            var file = e.target.files[0];
+            if (!file) return;
+            var reader = new FileReader();
+            reader.onload = function(ev) {
+                logoData = ev.target.result;
+                document.getElementById('logo-img').innerHTML = '<img src="' + logoData + '" alt="Logo">';
+                document.getElementById('logo-status').innerHTML = '<span class="step">Logo loaded!</span> Click the button below to generate.';
+            };
+            reader.readAsDataURL(file);
+        });
+
         function generate() {
-            var brandColor = '#1a1a2e';
+            if (!logoData) {
+                document.getElementById('status').textContent = 'Please upload your logo first.';
+                document.getElementById('status').style.color = '#e17055';
+                return;
+            }
+
+            document.getElementById('status').textContent = 'Generating...';
+            document.getElementById('status').style.color = '#999';
+
             var items = [
-                { num: 1, desc: 'Site inspection & pre-work assessment', detail: 'Structural assessment of deck framing, post bases, and bearer connections', amount: 0, note: '(included)' },
+                { num: 1, desc: 'Site inspection & pre-work assessment', detail: 'Structural assessment of deck framing, post bases, and bearer connections', amount: 0 },
                 { num: 2, desc: 'Remove & dispose of 3\u00d7 damaged structural posts', detail: 'Safe removal of existing 90\u00d790mm H4 treated pine posts; disposal off-site', amount: 480 },
                 { num: 3, desc: 'Supply & install 3\u00d7 new structural posts', detail: '90\u00d790mm H4 treated pine, 1.8m lengths; posts to match existing height', amount: 720 },
                 { num: 4, desc: 'Post base hardware & concrete footings', detail: '3\u00d7 galvanised adjustable post bases (Pryda or equiv.); re-pour or patch existing concrete pads as required', amount: 640 },
@@ -67,18 +107,17 @@
 
             // Totals
             var totalsBody = [
-                [{ text: 'Subtotal', alignment: 'right', color: '#888' }, { text: money(subtotal), alignment: 'right', color: '#333' }],
+                [{ text: 'Subtotal (ex. GST)', alignment: 'right', color: '#888' }, { text: money(subtotal), alignment: 'right', color: '#333' }],
                 [{ text: 'GST (10%)', alignment: 'right', color: '#888' }, { text: money(tax), alignment: 'right', color: '#333' }],
-                [{ text: 'Total (inc. GST)', alignment: 'right', bold: true, fontSize: 14, color: '#1a1a2e' }, { text: money(total), alignment: 'right', bold: true, fontSize: 14, color: '#1a1a2e' }],
-                [{ text: 'Balance Due', alignment: 'right', bold: true, fontSize: 12, color: '#6C5CE7' }, { text: money(total), alignment: 'right', bold: true, fontSize: 12, color: '#6C5CE7' }]
+                [{ text: 'Total (inc. GST)', alignment: 'right', bold: true, fontSize: 14, color: '#1a1a2e' }, { text: money(total), alignment: 'right', bold: true, fontSize: 14, color: '#1a1a2e' }]
             ];
 
             var docDef = {
                 content: [
-                    // Header
+                    // Header: Logo + QUOTE
                     {
                         columns: [
-                            { text: 'Decking Sunshine Coast', fontSize: 20, bold: true, color: '#1a1a2e' },
+                            { image: logoData, fit: [160, 80] },
                             { stack: [
                                 { text: 'QUOTE', fontSize: 28, bold: true, color: '#6C5CE7', alignment: 'right' },
                                 { text: 'Quote-001', fontSize: 11, color: '#888', alignment: 'right' }
@@ -93,14 +132,16 @@
                         columns: [
                             { stack: [
                                 { text: 'FROM', fontSize: 9, bold: true, color: '#999' },
-                                { text: 'Decking Sunshine Coast', fontSize: 12, bold: true, color: '#1a1a2e', margin: [0, 4, 0, 2] },
+                                { text: 'Decking Sunshine Coast', fontSize: 13, bold: true, color: '#1a1a2e', margin: [0, 4, 0, 2] },
                                 { text: 'decksunshine@gmail.com.au', fontSize: 10, color: '#555' },
                                 { text: '0753158386', fontSize: 10, color: '#555' },
-                                { text: 'https://sunshinecoastdeckings.com', fontSize: 10, color: '#6C5CE7' }
+                                { text: 'sunshinecoastdeckings.com', fontSize: 10, color: '#6C5CE7' }
                             ]},
                             { stack: [
                                 { text: 'PREPARED FOR', fontSize: 9, bold: true, color: '#999' },
-                                { text: ' ', fontSize: 10 }
+                                { text: '______________________________', fontSize: 10, color: '#ddd', margin: [0, 6, 0, 0] },
+                                { text: '______________________________', fontSize: 10, color: '#ddd', margin: [0, 4, 0, 0] },
+                                { text: '______________________________', fontSize: 10, color: '#ddd', margin: [0, 4, 0, 0] }
                             ]}
                         ],
                         margin: [0, 0, 0, 20]
@@ -109,11 +150,10 @@
                     // Meta row
                     {
                         table: {
-                            widths: ['*', '*', '*', '*'],
+                            widths: ['*', '*', '*'],
                             body: [[
-                                { stack: [{ text: 'ISSUE DATE', fontSize: 8, bold: true, color: '#999' }, { text: 'Apr 11, 2026', fontSize: 11, bold: true, color: '#333', margin: [0, 2, 0, 0] }] },
-                                { stack: [{ text: 'VALID UNTIL', fontSize: 8, bold: true, color: '#999' }, { text: 'May 10, 2026', fontSize: 11, bold: true, color: '#333', margin: [0, 2, 0, 0] }] },
-                                { stack: [{ text: 'STATUS', fontSize: 8, bold: true, color: '#999' }, { text: 'DRAFT', fontSize: 11, bold: true, color: '#333', margin: [0, 2, 0, 0] }] },
+                                { stack: [{ text: 'DATE', fontSize: 8, bold: true, color: '#999' }, { text: 'Apr 11, 2026', fontSize: 11, bold: true, color: '#333', margin: [0, 2, 0, 0] }] },
+                                { stack: [{ text: 'VALID FOR', fontSize: 8, bold: true, color: '#999' }, { text: '30 days', fontSize: 11, bold: true, color: '#333', margin: [0, 2, 0, 0] }] },
                                 { stack: [{ text: 'CURRENCY', fontSize: 8, bold: true, color: '#999' }, { text: 'AUD', fontSize: 11, bold: true, color: '#333', margin: [0, 2, 0, 0] }] }
                             ]]
                         },
@@ -129,10 +169,10 @@
                         margin: [0, 0, 0, 20]
                     },
 
-                    // Scope of Works heading
-                    { text: 'Scope of Works — Deck Post Replacement & Structural Repair', fontSize: 12, bold: true, color: '#1a1a2e', margin: [0, 0, 0, 12] },
+                    // Scope heading
+                    { text: 'Scope of Works \u2014 Deck Post Replacement & Structural Repair', fontSize: 12, bold: true, color: '#1a1a2e', margin: [0, 0, 0, 12] },
 
-                    // Line Items Table
+                    // Line Items
                     {
                         table: {
                             headerRows: 1,
@@ -170,19 +210,48 @@
                         margin: [0, 0, 0, 24]
                     },
 
+                    // Payment Terms
+                    { text: 'Payment', fontSize: 9, bold: true, color: '#999', margin: [0, 0, 0, 4] },
+                    { text: '50% deposit required to confirm booking. Balance due on completion.', fontSize: 10, color: '#555', margin: [0, 0, 0, 16] },
+
                     // Notes
                     { text: 'Notes', fontSize: 9, bold: true, color: '#999', margin: [0, 0, 0, 4] },
-                    { text: 'This quote is valid for 30 days from issue date. All prices include materials and labour unless otherwise stated. Work is subject to site access and weather conditions.', fontSize: 10, color: '#555', margin: [0, 0, 0, 16] },
+                    { text: 'All prices include materials and labour unless otherwise stated. Work is subject to site access and weather conditions. Item 7 (structural timber repairs) is an allowance \u2014 actual cost may vary depending on site conditions.', fontSize: 10, color: '#555', margin: [0, 0, 0, 16] },
 
-                    // Terms
-                    { text: 'Terms & Conditions', fontSize: 9, bold: true, color: '#999', margin: [0, 0, 0, 4] },
-                    { text: '50% deposit required to confirm booking. Balance due on completion. QBCC licensed. Fully insured.', fontSize: 10, color: '#555' }
+                    // Acceptance line + signature
+                    {
+                        canvas: [{ type: 'line', x1: 0, y1: 0, x2: 515, y2: 0, lineWidth: 1, lineColor: '#ddd' }],
+                        margin: [0, 8, 0, 16]
+                    },
+
+                    { text: 'This quote constitutes an offer to perform the works described. Acceptance occurs upon the client signing the quote or paying the deposit, whichever occurs first.', fontSize: 9, color: '#555', italics: true, margin: [0, 0, 0, 24] },
+
+                    // Signature block
+                    {
+                        columns: [
+                            { stack: [
+                                { text: 'CLIENT ACCEPTANCE', fontSize: 8, bold: true, color: '#999' },
+                                { text: ' ', fontSize: 30 },
+                                { canvas: [{ type: 'line', x1: 0, y1: 0, x2: 200, y2: 0, lineWidth: 0.5, lineColor: '#999' }] },
+                                { text: 'Signature', fontSize: 8, color: '#999', margin: [0, 4, 0, 0] },
+                                { text: ' ', fontSize: 16 },
+                                { canvas: [{ type: 'line', x1: 0, y1: 0, x2: 200, y2: 0, lineWidth: 0.5, lineColor: '#999' }] },
+                                { text: 'Date', fontSize: 8, color: '#999', margin: [0, 4, 0, 0] }
+                            ]},
+                            { stack: [
+                                { text: 'ISSUED BY', fontSize: 8, bold: true, color: '#999' },
+                                { text: ' ', fontSize: 30 },
+                                { canvas: [{ type: 'line', x1: 0, y1: 0, x2: 200, y2: 0, lineWidth: 0.5, lineColor: '#999' }] },
+                                { text: 'Decking Sunshine Coast', fontSize: 8, color: '#999', margin: [0, 4, 0, 0] }
+                            ]}
+                        ]
+                    }
                 ],
                 footer: function(currentPage, pageCount) {
                     return {
                         columns: [
                             { text: 'Page ' + currentPage + ' of ' + pageCount, alignment: 'left', fontSize: 8, color: '#bbb', margin: [40, 0, 0, 0] },
-                            { text: 'Decking Sunshine Coast \u2014 sunshinecoastdeckings.com', alignment: 'right', fontSize: 8, color: '#bbb', margin: [0, 0, 40, 0] }
+                            { text: 'Decking Sunshine Coast  |  0753158386  |  sunshinecoastdeckings.com', alignment: 'right', fontSize: 8, color: '#bbb', margin: [0, 0, 40, 0] }
                         ]
                     };
                 },
@@ -197,18 +266,13 @@
             try {
                 pdfMake.createPdf(docDef).download('Quote-001-Decking-Sunshine-Coast.pdf');
                 document.getElementById('status').textContent = 'PDF downloaded!';
-                document.getElementById('btn').style.display = 'inline-block';
+                document.getElementById('status').style.color = '#00b894';
             } catch (err) {
                 document.getElementById('status').textContent = 'Error: ' + err.message;
-                document.getElementById('btn').style.display = 'inline-block';
+                document.getElementById('status').style.color = '#e17055';
                 console.error(err);
             }
         }
-
-        // Wait for pdfmake to load then generate
-        window.onload = function() {
-            setTimeout(generate, 500);
-        };
     </script>
 </body>
 </html>
