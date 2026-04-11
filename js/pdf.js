@@ -14,36 +14,35 @@ const InvoyPDF = (() => {
         return CURRENCY_SYMBOLS[code] || code + ' ';
     }
 
-    // Blend a hex color with white for a soft tint (0 = white, 1 = full color)
     function tintColor(hex, amount) {
-        const clean = hex.replace('#', '');
+        var clean = (hex || '#999999').replace('#', '');
         if (clean.length !== 6) return '#f8f8fc';
-        const r = parseInt(clean.substring(0, 2), 16);
-        const g = parseInt(clean.substring(2, 4), 16);
-        const b = parseInt(clean.substring(4, 6), 16);
-        const mix = (c) => Math.round(255 - (255 - c) * amount);
-        const toHex = (c) => c.toString(16).padStart(2, '0');
+        var r = parseInt(clean.substring(0, 2), 16);
+        var g = parseInt(clean.substring(2, 4), 16);
+        var b = parseInt(clean.substring(4, 6), 16);
+        var mix = function(c) { return Math.round(255 - (255 - c) * amount); };
+        var toHex = function(c) { return c.toString(16).padStart(2, '0'); };
         return '#' + toHex(mix(r)) + toHex(mix(g)) + toHex(mix(b));
     }
 
     function formatMoney(amount, currency) {
-        const sym = getCurrencySymbol(currency);
-        const num = parseFloat(amount) || 0;
+        var sym = getCurrencySymbol(currency);
+        var num = parseFloat(amount) || 0;
         if (currency === 'JPY') return sym + Math.round(num).toLocaleString();
         return sym + num.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
     }
 
     function formatDate(dateStr, format) {
         if (!dateStr) return '';
-        const d = new Date(dateStr + 'T00:00:00');
-        if (isNaN(d)) return '';
-        const yyyy = d.getFullYear();
-        const mm = String(d.getMonth() + 1).padStart(2, '0');
-        const dd = String(d.getDate()).padStart(2, '0');
+        var d = new Date(dateStr + 'T00:00:00');
+        if (isNaN(d.getTime())) return '';
+        var yyyy = d.getFullYear();
+        var mm = String(d.getMonth() + 1).padStart(2, '0');
+        var dd = String(d.getDate()).padStart(2, '0');
         switch (format) {
-            case 'us': return `${mm}/${dd}/${yyyy}`;
-            case 'eu': return `${dd}/${mm}/${yyyy}`;
-            case 'iso': return `${yyyy}-${mm}-${dd}`;
+            case 'us': return mm + '/' + dd + '/' + yyyy;
+            case 'eu': return dd + '/' + mm + '/' + yyyy;
+            case 'iso': return yyyy + '-' + mm + '-' + dd;
             case 'long': return d.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
             case 'short':
             default: return d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
@@ -51,27 +50,27 @@ const InvoyPDF = (() => {
     }
 
     function generateDefinition(invoice) {
-        const curr = invoice.currency || 'USD';
-        const brandColor = invoice.brandColor || '#6C5CE7';
-        const headingColor = invoice.headingColor || '#1a1a2e';
-        const bodyColor = invoice.bodyColor || '#333333';
-        const mutedColor = invoice.mutedColor || '#999999';
-        const logoSize = invoice.logoSize || 'medium';
-        const paperSize = invoice.paperSize || 'A4';
-        const dateFormat = invoice.dateFormat || 'short';
-        const fontFamily = invoice.fontFamily || 'Roboto';
-        const headerAlign = invoice.headerAlign || 'split';
-        const accentBar = invoice.accentBar || 'none';
-        const showQty = invoice.showQty !== false;
-        const showRate = invoice.showRate !== false;
-        const showStatus = invoice.showStatus !== false;
-        const showCurrency = invoice.showCurrency !== false;
-        const showDue = invoice.showDue !== false;
-        const showFooter = invoice.showFooter !== false;
+        var curr = invoice.currency || 'USD';
+        var brandColor = invoice.brandColor || '#6C5CE7';
+        var headingColor = invoice.headingColor || '#1a1a2e';
+        var bodyColor = invoice.bodyColor || '#333333';
+        var mutedColor = invoice.mutedColor || '#999999';
+        var logoSize = invoice.logoSize || 'medium';
+        var paperSize = invoice.paperSize || 'A4';
+        var dateFormat = invoice.dateFormat || 'short';
+        var headerAlign = invoice.headerAlign || 'split';
+        var accentBar = invoice.accentBar || 'none';
+        var showQty = invoice.showQty !== false;
+        var showRate = invoice.showRate !== false;
+        var showStatus = invoice.showStatus !== false;
+        var showCurrency = invoice.showCurrency !== false;
+        var showDue = invoice.showDue !== false;
+        var showFooter = invoice.showFooter !== false;
 
-        const docType = invoice.docType || 'invoice';
-        const isNonInvoice = ['estimate', 'quote', 'proforma'].includes(docType);
-        const DOC_TITLES = {
+        var docType = invoice.docType || 'invoice';
+        var isNonInvoice = (docType === 'estimate' || docType === 'quote' || docType === 'proforma');
+
+        var DOC_TITLES = {
             invoice: invoice.docTitle || 'INVOICE',
             quote: 'QUOTE',
             estimate: invoice.estTitle || 'ESTIMATE',
@@ -79,64 +78,65 @@ const InvoyPDF = (() => {
             proforma: 'PROFORMA INVOICE',
             'credit-note': 'CREDIT NOTE'
         };
-        const titleText = DOC_TITLES[docType] || invoice.docTitle || 'INVOICE';
+        var titleText = DOC_TITLES[docType] || 'INVOICE';
 
-        const fmtD = (s) => formatDate(s, dateFormat);
-
-        const LOGO_DIMS = {
-            small:  { width: 130, fit: [130, 60] },
-            medium: { width: 180, fit: [180, 90] },
-            large:  { width: 240, fit: [240, 130] },
-            xlarge: { width: 300, fit: [300, 170] }
+        var LOGO_FITS = {
+            small:  [130, 60],
+            medium: [180, 90],
+            large:  [240, 130],
+            xlarge: [300, 170]
         };
-        const logoDims = LOGO_DIMS[logoSize] || LOGO_DIMS.medium;
+        var logoFit = LOGO_FITS[logoSize] || LOGO_FITS.medium;
 
-        const items = invoice.items || [];
-        const subtotal = items.reduce((sum, item) => sum + ((parseFloat(item.quantity) || 0) * (parseFloat(item.rate) || 0)), 0);
+        var items = invoice.items || [];
+        var subtotal = 0;
+        for (var i = 0; i < items.length; i++) {
+            subtotal += (parseFloat(items[i].quantity) || 0) * (parseFloat(items[i].rate) || 0);
+        }
 
-        let discountAmount = 0;
+        var discountAmount = 0;
         if (invoice.discountType === 'percentage') {
             discountAmount = subtotal * ((parseFloat(invoice.discount) || 0) / 100);
         } else {
             discountAmount = parseFloat(invoice.discount) || 0;
         }
 
-        const afterDiscount = subtotal - discountAmount;
-        const taxAmount = afterDiscount * ((parseFloat(invoice.taxRate) || 0) / 100);
-        const total = afterDiscount + taxAmount;
-        const amountPaid = parseFloat(invoice.amountPaid) || 0;
-        const balanceDue = total - amountPaid;
+        var afterDiscount = subtotal - discountAmount;
+        var taxAmount = afterDiscount * ((parseFloat(invoice.taxRate) || 0) / 100);
+        var total = afterDiscount + taxAmount;
+        var amountPaid = parseFloat(invoice.amountPaid) || 0;
+        var balanceDue = total - amountPaid;
 
-        // Build line items table body (respecting show/hide)
-        const headerRow = [{ text: 'Description', style: 'tableHeader' }];
-        if (showQty)  headerRow.push({ text: 'Qty', style: 'tableHeader', alignment: 'center' });
+        // --- Line Items Table ---
+        var headerRow = [{ text: 'Description', style: 'tableHeader' }];
+        if (showQty) headerRow.push({ text: 'Qty', style: 'tableHeader', alignment: 'center' });
         if (showRate) headerRow.push({ text: 'Rate', style: 'tableHeader', alignment: 'right' });
         headerRow.push({ text: 'Amount', style: 'tableHeader', alignment: 'right' });
 
-        const tableBody = [headerRow];
-        const tableWidths = ['*'];
-        if (showQty)  tableWidths.push(50);
+        var tableBody = [headerRow];
+        var tableWidths = ['*'];
+        if (showQty) tableWidths.push(50);
         if (showRate) tableWidths.push(80);
         tableWidths.push(80);
 
-        items.forEach(item => {
-            const qty = parseFloat(item.quantity) || 0;
-            const rate = parseFloat(item.rate) || 0;
-            const row = [{ text: item.description || '', style: 'tableCell' }];
-            if (showQty)  row.push({ text: qty.toString(), style: 'tableCell', alignment: 'center' });
+        for (var j = 0; j < items.length; j++) {
+            var qty = parseFloat(items[j].quantity) || 0;
+            var rate = parseFloat(items[j].rate) || 0;
+            var row = [{ text: items[j].description || '', style: 'tableCell' }];
+            if (showQty) row.push({ text: String(qty), style: 'tableCell', alignment: 'center' });
             if (showRate) row.push({ text: formatMoney(rate, curr), style: 'tableCell', alignment: 'right' });
             row.push({ text: formatMoney(qty * rate, curr), style: 'tableCell', alignment: 'right' });
             tableBody.push(row);
-        });
+        }
 
-        // Build totals
-        const totalsBody = [
+        // --- Totals ---
+        var totalsBody = [
             [{ text: 'Subtotal', alignment: 'right', color: mutedColor }, { text: formatMoney(subtotal, curr), alignment: 'right', color: bodyColor }]
         ];
 
         if (discountAmount > 0) {
-            const discLabel = invoice.discountType === 'percentage'
-                ? `Discount (${invoice.discount}%)`
+            var discLabel = invoice.discountType === 'percentage'
+                ? 'Discount (' + invoice.discount + '%)'
                 : 'Discount';
             totalsBody.push([
                 { text: discLabel, alignment: 'right', color: mutedColor },
@@ -146,11 +146,12 @@ const InvoyPDF = (() => {
 
         if (parseFloat(invoice.taxRate) > 0) {
             totalsBody.push([
-                { text: `Tax (${invoice.taxRate}%)`, alignment: 'right', color: mutedColor },
+                { text: 'Tax (' + invoice.taxRate + '%)', alignment: 'right', color: mutedColor },
                 { text: formatMoney(taxAmount, curr), alignment: 'right', color: bodyColor }
             ]);
         }
 
+        var totalRowIdx = totalsBody.length;
         totalsBody.push([
             { text: 'Total', alignment: 'right', bold: true, fontSize: 13, color: headingColor },
             { text: formatMoney(total, curr), alignment: 'right', bold: true, fontSize: 13, color: headingColor }
@@ -163,15 +164,14 @@ const InvoyPDF = (() => {
                     { text: formatMoney(amountPaid, curr), alignment: 'right', color: bodyColor }
                 ]);
             }
-
             totalsBody.push([
                 { text: 'Balance Due', alignment: 'right', bold: true, fontSize: 12, color: brandColor },
                 { text: formatMoney(balanceDue, curr), alignment: 'right', bold: true, fontSize: 12, color: brandColor }
             ]);
         }
 
-        // Build document content
-        const content = [];
+        // --- Build content ---
+        var content = [];
 
         // Accent bar top
         if (accentBar === 'top' || accentBar === 'both') {
@@ -181,12 +181,15 @@ const InvoyPDF = (() => {
             });
         }
 
-        // Header: Logo + TITLE
-        const logoEl = invoice.logo
-            ? { image: invoice.logo, width: logoDims.width, fit: logoDims.fit }
-            : { text: invoice.fromName || '', style: 'brandName' };
+        // Header
+        var logoEl;
+        if (invoice.logo) {
+            logoEl = { image: invoice.logo, fit: logoFit };
+        } else {
+            logoEl = { text: invoice.fromName || '', style: 'brandName' };
+        }
 
-        const titleStack = {
+        var titleEl = {
             stack: [
                 { text: titleText, style: 'invoiceTitle' },
                 { text: invoice.number || '', style: 'invoiceNumber' }
@@ -194,20 +197,33 @@ const InvoyPDF = (() => {
         };
 
         if (headerAlign === 'center') {
-            content.push({ stack: [logoEl, { ...titleStack, alignment: 'center', margin: [0, 10, 0, 0] }], alignment: 'center', margin: [0, 0, 0, 24] });
+            if (invoice.logo) {
+                content.push({ image: invoice.logo, fit: logoFit, alignment: 'center', margin: [0, 0, 0, 8] });
+            } else {
+                content.push({ text: invoice.fromName || '', style: 'brandName', alignment: 'center', margin: [0, 0, 0, 8] });
+            }
+            content.push({ text: titleText, style: 'invoiceTitle', alignment: 'center' });
+            content.push({ text: invoice.number || '', style: 'invoiceNumber', alignment: 'center', margin: [0, 0, 0, 24] });
         } else if (headerAlign === 'left') {
-            content.push({ stack: [logoEl, { ...titleStack, margin: [0, 10, 0, 0] }], margin: [0, 0, 0, 24] });
+            content.push(logoEl);
+            content.push({ text: titleText, style: 'invoiceTitle', margin: [0, 10, 0, 0] });
+            content.push({ text: invoice.number || '', style: 'invoiceNumber', margin: [0, 0, 0, 24] });
         } else {
-            // split
             content.push({
-                columns: [logoEl, { ...titleStack, alignment: 'right' }],
-                margin: [0, 0, 0, 24],
-                columnGap: 20
+                columns: [
+                    logoEl,
+                    { stack: [
+                        { text: titleText, style: 'invoiceTitle', alignment: 'right' },
+                        { text: invoice.number || '', style: 'invoiceNumber', alignment: 'right' }
+                    ]}
+                ],
+                columnGap: 20,
+                margin: [0, 0, 0, 24]
             });
         }
 
         // From / To
-        const fromStack = [
+        var fromStack = [
             { text: 'FROM', style: 'sectionLabel' },
             { text: invoice.fromName || '', style: 'partyName' },
             { text: invoice.fromEmail || '', style: 'partyDetail' },
@@ -215,33 +231,31 @@ const InvoyPDF = (() => {
             { text: invoice.fromPhone || '', style: 'partyDetail' }
         ];
         if (invoice.website) fromStack.push({ text: invoice.website, style: 'partyDetail', color: brandColor });
-        if (invoice.taxId) fromStack.push({ text: 'Tax ID: ' + invoice.taxId, style: 'partyDetail', fontSize: 9, color: mutedColor });
-        if (invoice.regNumber) fromStack.push({ text: 'Reg #: ' + invoice.regNumber, style: 'partyDetail', fontSize: 9, color: mutedColor });
+        if (invoice.taxId) fromStack.push({ text: 'Tax ID: ' + invoice.taxId, fontSize: 9, color: mutedColor });
+        if (invoice.regNumber) fromStack.push({ text: 'Reg #: ' + invoice.regNumber, fontSize: 9, color: mutedColor });
 
         content.push({
             columns: [
                 { stack: fromStack },
-                {
-                    stack: [
-                        { text: isNonInvoice ? 'PREPARED FOR' : 'BILL TO', style: 'sectionLabel' },
-                        { text: invoice.toName || '', style: 'partyName' },
-                        { text: invoice.toEmail || '', style: 'partyDetail' },
-                        { text: invoice.toAddress || '', style: 'partyDetail' }
-                    ]
-                }
+                { stack: [
+                    { text: isNonInvoice ? 'PREPARED FOR' : 'BILL TO', style: 'sectionLabel' },
+                    { text: invoice.toName || '', style: 'partyName' },
+                    { text: invoice.toEmail || '', style: 'partyDetail' },
+                    { text: invoice.toAddress || '', style: 'partyDetail' }
+                ]}
             ],
             margin: [0, 0, 0, 20]
         });
 
-        // Meta row (respecting show/hide)
-        const metaCells = [
-            { stack: [{ text: 'Issue Date', style: 'metaLabel' }, { text: fmtD(invoice.date), style: 'metaValue' }] }
+        // Meta row
+        var metaCells = [
+            { stack: [{ text: 'Issue Date', style: 'metaLabel' }, { text: formatDate(invoice.date, dateFormat), style: 'metaValue' }] }
         ];
         if (!isNonInvoice && showDue) {
-            metaCells.push({ stack: [{ text: 'Due Date', style: 'metaLabel' }, { text: fmtD(invoice.dueDate), style: 'metaValue' }] });
+            metaCells.push({ stack: [{ text: 'Due Date', style: 'metaLabel' }, { text: formatDate(invoice.dueDate, dateFormat), style: 'metaValue' }] });
         }
         if (isNonInvoice && invoice.dueDate) {
-            metaCells.push({ stack: [{ text: 'Valid Until', style: 'metaLabel' }, { text: fmtD(invoice.dueDate), style: 'metaValue' }] });
+            metaCells.push({ stack: [{ text: 'Valid Until', style: 'metaLabel' }, { text: formatDate(invoice.dueDate, dateFormat), style: 'metaValue' }] });
         }
         if (showStatus) {
             metaCells.push({ stack: [{ text: 'Status', style: 'metaLabel' }, { text: (invoice.status || 'draft').toUpperCase(), style: 'metaValue' }] });
@@ -250,36 +264,32 @@ const InvoyPDF = (() => {
             metaCells.push({ stack: [{ text: 'Currency', style: 'metaLabel' }, { text: curr, style: 'metaValue' }] });
         }
 
-        if (metaCells.length > 0) {
-            const metaWidths = metaCells.map(() => '*');
-            content.push({
-                table: { widths: metaWidths, body: [metaCells] },
-                layout: {
-                    fillColor: () => tintColor(brandColor, 0.08),
-                    hLineWidth: () => 0,
-                    vLineWidth: () => 0,
-                    paddingLeft: () => 10,
-                    paddingRight: () => 10,
-                    paddingTop: () => 8,
-                    paddingBottom: () => 8
-                },
-                margin: [0, 0, 0, 20]
-            });
-        }
+        var metaWidths = [];
+        for (var m = 0; m < metaCells.length; m++) metaWidths.push('*');
+
+        content.push({
+            table: { widths: metaWidths, body: [metaCells] },
+            layout: {
+                fillColor: function() { return tintColor(brandColor, 0.08); },
+                hLineWidth: function() { return 0; },
+                vLineWidth: function() { return 0; },
+                paddingLeft: function() { return 10; },
+                paddingRight: function() { return 10; },
+                paddingTop: function() { return 8; },
+                paddingBottom: function() { return 8; }
+            },
+            margin: [0, 0, 0, 20]
+        });
 
         // Line Items Table
         content.push({
-            table: {
-                headerRows: 1,
-                widths: tableWidths,
-                body: tableBody
-            },
+            table: { headerRows: 1, widths: tableWidths, body: tableBody },
             layout: {
-                hLineWidth: (i, node) => (i === 0 || i === 1 || i === node.table.body.length) ? 1 : 0.5,
-                vLineWidth: () => 0,
-                hLineColor: (i) => i <= 1 ? tintColor(mutedColor, 0.5) : tintColor(mutedColor, 0.2),
-                paddingTop: () => 8,
-                paddingBottom: () => 8
+                hLineWidth: function(i, node) { return (i === 0 || i === 1 || i === node.table.body.length) ? 1 : 0.5; },
+                vLineWidth: function() { return 0; },
+                hLineColor: function(i) { return i <= 1 ? tintColor(mutedColor, 0.5) : tintColor(mutedColor, 0.2); },
+                paddingTop: function() { return 8; },
+                paddingBottom: function() { return 8; }
             },
             margin: [0, 0, 0, 16]
         });
@@ -290,26 +300,20 @@ const InvoyPDF = (() => {
                 { width: '*', text: '' },
                 {
                     width: 240,
-                    table: {
-                        widths: ['*', 'auto'],
-                        body: totalsBody
-                    },
+                    table: { widths: ['*', 'auto'], body: totalsBody },
                     layout: {
-                        hLineWidth: (i) => {
-                            const totalIdx = totalsBody.findIndex(r => r && r[0] && r[0].fontSize === 13);
-                            return (totalIdx >= 0 && i === totalIdx) ? 1 : 0;
-                        },
-                        vLineWidth: () => 0,
-                        hLineColor: () => brandColor,
-                        paddingTop: () => 4,
-                        paddingBottom: () => 4
+                        hLineWidth: function(i) { return i === totalRowIdx ? 1 : 0; },
+                        vLineWidth: function() { return 0; },
+                        hLineColor: function() { return brandColor; },
+                        paddingTop: function() { return 4; },
+                        paddingBottom: function() { return 4; }
                     }
                 }
             ],
             margin: [0, 0, 0, 20]
         });
 
-        // Payment Instructions (only for invoices)
+        // Payment Instructions
         if (invoice.paymentInstructions && !isNonInvoice) {
             content.push({ text: 'Payment Instructions', style: 'sectionLabel', margin: [0, 10, 0, 4] });
             content.push({ text: invoice.paymentInstructions, style: 'partyDetail', margin: [0, 0, 0, 10] });
@@ -335,31 +339,24 @@ const InvoyPDF = (() => {
             });
         }
 
-        const footerText = invoice.footerText || 'Created with Invoy \u2014 Free Invoice Generator';
+        var footerText = invoice.footerText || 'Created with Invoy — Free Invoice Generator';
+        var footerColor = tintColor(mutedColor, 0.5);
 
-        // Lighter muted color for footer (pdfmake doesn't support opacity)
-        const footerColor = tintColor(mutedColor, 0.5);
-
-        // pdfmake only ships with Roboto. Other fonts require VFS setup.
-        const usableFont = 'Roboto';
-
-        const docDef = {
-            content,
+        var docDef = {
+            content: content,
             styles: {
                 invoiceTitle: { fontSize: 28, bold: true, color: brandColor },
                 invoiceNumber: { fontSize: 11, color: mutedColor, margin: [0, 2, 0, 0] },
                 brandName: { fontSize: 18, bold: true, color: headingColor },
                 sectionLabel: { fontSize: 9, bold: true, color: mutedColor },
                 partyName: { fontSize: 12, bold: true, color: headingColor, margin: [0, 4, 0, 2] },
-                partyDetail: { fontSize: 10, color: bodyColor, lineHeight: 1.4 },
+                partyDetail: { fontSize: 10, color: bodyColor },
                 metaLabel: { fontSize: 8, color: mutedColor, bold: true },
                 metaValue: { fontSize: 11, color: headingColor, bold: true, margin: [0, 2, 0, 0] },
-                tableHeader: { fontSize: 8, bold: true, color: mutedColor, margin: [0, 0, 0, 0] },
+                tableHeader: { fontSize: 8, bold: true, color: mutedColor },
                 tableCell: { fontSize: 10, color: bodyColor }
             },
-            defaultStyle: {
-                font: usableFont
-            },
+            defaultStyle: { font: 'Roboto' },
             pageSize: paperSize,
             pageMargins: [40, 40, 40, 60]
         };
@@ -379,15 +376,25 @@ const InvoyPDF = (() => {
     }
 
     function download(invoice) {
-        const docDef = generateDefinition(invoice);
-        const filename = `${(invoice.number || 'invoice').replace(/[^a-zA-Z0-9-]/g, '_')}.pdf`;
-        pdfMake.createPdf(docDef).download(filename);
+        try {
+            var docDef = generateDefinition(invoice);
+            var filename = (invoice.number || 'invoice').replace(/[^a-zA-Z0-9-]/g, '_') + '.pdf';
+            pdfMake.createPdf(docDef).download(filename);
+        } catch (err) {
+            console.error('PDF generation error:', err);
+            alert('PDF generation failed: ' + err.message + '\n\nTry removing the logo image and downloading again.');
+        }
     }
 
     function preview(invoice) {
-        const docDef = generateDefinition(invoice);
-        pdfMake.createPdf(docDef).open();
+        try {
+            var docDef = generateDefinition(invoice);
+            pdfMake.createPdf(docDef).open();
+        } catch (err) {
+            console.error('PDF preview error:', err);
+            alert('PDF preview failed: ' + err.message);
+        }
     }
 
-    return { download, preview, formatMoney, formatDate, getCurrencySymbol };
+    return { download: download, preview: preview, formatMoney: formatMoney, formatDate: formatDate, getCurrencySymbol: getCurrencySymbol };
 })();
